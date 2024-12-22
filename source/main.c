@@ -8,11 +8,12 @@
 #include <wafel/patch.h>
 #include <wafel/ios/svc.h>
 #include <wafel/trampoline.h>
-#include <wafel/ios/ipc_types.h> 
+#include <wafel/ios/ipc_types.h>
+#include "fs_request.h"
 
 
 void fsfat_hook(trampoline_state *regs){
-    u8 *request = (u8*)regs->r[7];
+    FAT_WorkMessage *request = (u8*)regs->r[7];
     debug_printf("FSFAT Request: %p", request);
     for(int i=0; i<0x428; i++){
         if(i%16==0){
