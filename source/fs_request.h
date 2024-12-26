@@ -1110,6 +1110,12 @@ union FAT_Request {
     struct FAT_BaseRequest _b; /* fake to pad struct */
 };
 
+
+struct fs_response {
+    int set;
+    int retval;
+} typedef fs_response;
+
 struct FAT_WorkMessage {
     undefined field0_0x0;
     undefined field1_0x1;
@@ -1124,17 +1130,11 @@ struct FAT_WorkMessage {
     undefined field10_0xd;
     undefined field11_0xe;
     undefined field12_0xf;
-    undefined field13_0x10;
-    undefined field14_0x11;
-    undefined field15_0x12;
-    undefined field16_0x13;
-    uint * field17_0x14;
+    FSSALHandle handle;
+    fs_response * worker;
     uint command;
-    uint field19_0x1c;
-    undefined field20_0x20;
-    undefined field21_0x21;
-    undefined field22_0x22;
-    undefined field23_0x23;
+    void (*callback)(int, void*);
+    void* calback_data;
     union FAT_Request request;
 };
 
