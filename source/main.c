@@ -56,12 +56,21 @@ void fsfat_mount0(FAT_WorkMessage *message){
     print_request_hex(&message->request);
 }
 
+void fsfat_open_file(FAT_WorkMessage *message){
+    FAT_OpenFileRequest *req = &message->request;
+    FSSALHandle sal_hanlde = message->handle;
+    debug_printf("%s: OpenFile(%s, %s) handle: %04x\n", PLUGIN_NAME, req->path, req->mode, sal_hanlde);
+    print_request_hex(req);
+}
+
 void fsfat_command_switch(FAT_WorkMessage *message){
     switch(message->command){
         case 0x02:
             return fsfat_mount0(message);
         case 0x03:
             //deattached
+        case 0x0a:
+            return fsfat_open_file(message);
         case 0x2a:
             return fsfat_init(message);
         case 0x2c: 
@@ -107,8 +116,8 @@ void kern_main()
 
     debug_printf("init_linking symbol at: %08x\n", wafel_find_symbol("init_linking"));
 
-    //trampoline_hook_before(0x1078a688, fsfat_hook);
-    trampoline_hook_before(0x1073e9b4, fswfs_hook);
+    trampoline_hook_before(0x1078a688, fsfat_hook);
+    //trampoline_hook_before(0x1073e9b4, fswfs_hook);
 
 }
 
