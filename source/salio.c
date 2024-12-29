@@ -6,16 +6,17 @@
 #include <stdio.h>
 #include <wafel/dynamic.h>
 #include <wafel/utils.h>
+#include <wafel/ios/svc.h>
 
 const char *MODULE_NAME = "SALIO";
 
 
 
 uint32_t (*FSSAL_RawRead)(FSSALHandle device,uint32_t lba_hi,uint lba, uint32_t blkCount,void *buf,
-                      void (*cb)(int, void*),void *cb_ctx) = 0x10732bc0;
+                      void (*cb)(int, void*),void *cb_ctx) = (void*)0x10732bc0;
 
 uint32_t (*FSSAL_RawWrite)(FSSALHandle device,uint32_t lba_hi,uint lba, uint32_t blkCount,void *buf,
-                      void (*cb)(int, void*),void *cb_ctx) = 0x0107328a0;
+                      void (*cb)(int, void*),void *cb_ctx) = (void*)0x0107328a0;
 
 struct sal_fatfs {
     FSSALHandle handle;
@@ -75,9 +76,10 @@ struct rw_cb_ctx {
     int res;
 } typedef rw_cb_ctx;
 
-static void rw_callback(int res, rw_cb_ctx *ctx){
-    ctx->res = res;
-    iosSignalSemaphore(ctx->semaphore);
+static void rw_callback(int res, void *ctx){
+    rw_cb_ctx *c = (rw_cb_ctx *)ctx;
+    c->res = res;
+    iosSignalSemaphore(c->semaphore);
 }
 
 static DRESULT sync_rw(BYTE pdrv, BYTE* buff, LBA_t sector, UINT count, uint32_t (*raw_rw)(FSSALHandle device,uint32_t lba_hi,uint lba, uint32_t blkCount,void *buf,
@@ -101,7 +103,7 @@ DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count) {
 }
 
 DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count) {
-    return sync_rw(pdrv, buff, sector, count, FSSAL_RawWrite);
+    return sync_rw(pdrv, (BYTE*)buff, sector, count, FSSAL_RawWrite);
 }
 DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff){
     debug_printf("%s: disk_ioctl(%i, %i, %p)\n", pdrv, cmd, buff);
@@ -110,3 +112,7 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff){
     return RES_OK;
 }
 
+
+DWORD get_fattime (void) {
+    return 0; //TODO
+}

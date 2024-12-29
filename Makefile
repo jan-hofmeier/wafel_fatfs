@@ -18,10 +18,10 @@ export TARGET		:=	wafel_fatfs
 export BUILD		?=	debug
 
 R_SOURCES			:=	
-SOURCES				:=	source source/ios source/services source/wupserver source/latte
+SOURCES				:=	source source/fatfs
 
 R_INCLUDES			:=	
-INCLUDES 			:=	source
+INCLUDES 			:=	source source/fatfs
 
 DATA				:=	
 
