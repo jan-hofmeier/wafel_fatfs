@@ -29,7 +29,7 @@ typedef struct FAT_ReadDirRequest FAT_ReadDirRequest, *PFAT_ReadDirRequest;
 
 typedef struct FAT_BaseRequest FAT_BaseRequest, *PFAT_BaseRequest;
 
-typedef struct FSSALHandle FSSALHandle, *PFSSALHandle;
+typedef uint FSSALHandle, *PFSSALHandle;
 
 typedef int * FAT_DirHandle;
 
@@ -45,7 +45,7 @@ typedef enum SALDeviceType { /* from dimok, unknown accuracy https://github.com/
     SAL_DEVICE_RAMDISK=9,
     SAL_DEVICE_USB=17,
     SAL_DEVICE_MLCORIG=18
-} SALDeviceType;
+} __attribute__ ((__packed__)) SALDeviceType;
 
 struct FAT_UnmountRequest {
     int handle;
@@ -65,14 +65,14 @@ struct FAT_MkdirRequest {
     uint permissions;
 };
 
-struct FSSALHandle {
-    enum SALDeviceType type;
-    byte index;
-    ushort generation;
-};
+// struct FSSALHandle {
+//     enum SALDeviceType type;
+//     byte index;
+//     ushort generation;
+// };
 
 struct FAT_FormatDeviceRequest {
-    struct FSSALHandle device_handle;
+    FSSALHandle device_handle;
 };
 
 struct FAT_OpenFileRequest{
