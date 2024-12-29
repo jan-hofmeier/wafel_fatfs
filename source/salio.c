@@ -8,7 +8,7 @@
 #include <wafel/utils.h>
 #include <wafel/ios/svc.h>
 
-const char *MODULE_NAME = "SALIO";
+static const char *MODULE_NAME = "SALIO";
 
 
 
@@ -38,7 +38,7 @@ static int add_sal_handle(FSSALHandle sal_handle) {
     return -1;
 }
 
-static int find_sal_handle_index(FSSALHandle handle){
+int salio_get_drive_number(FSSALHandle handle){
     for(int i=0; i<FF_VOLUMES; i++){
         if(fatfs_volumes[i].used && fatfs_volumes[i].handle == handle)
             return i;
@@ -47,7 +47,7 @@ static int find_sal_handle_index(FSSALHandle handle){
 }
 
 int salio_mount(FSSALHandle sal_handle){
-    int index = find_sal_handle_index(sal_handle);
+    int index = salio_get_drive_number(sal_handle);
     if(index<0)
         index = add_sal_handle(sal_handle);
     if(index<0)
@@ -111,7 +111,6 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff){
     while(1);
     return RES_OK;
 }
-
 
 DWORD get_fattime (void) {
     return 0; //TODO
