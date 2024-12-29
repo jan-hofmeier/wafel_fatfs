@@ -4,7 +4,7 @@
 
 static const char* MODULE_NAME = "SALFATFS";
 
-void salfatfs_process_message(FAT_WorkMessage *message){
+static int fatfs_message_dispatch(FAT_WorkMessage *message){
     switch(message->command){
         case 0x02:
             return salio_mount(message->handle);
@@ -20,4 +20,10 @@ void salfatfs_process_message(FAT_WorkMessage *message){
             debug_printf("%s: Unknown command %x!!!! HALTING\n", MODULE_NAME, message->command);
             while(1);
     }
+}
+
+void salfatfs_process_message(FAT_WorkMessage *message){
+    int ret = fatfs_message_dispatch(message);
+    if(message->callback)
+        message->callback(ret, message->calback_data);
 }
