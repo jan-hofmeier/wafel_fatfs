@@ -27,7 +27,7 @@ struct sal_fatfs {
 static sal_fatfs fatfs_volumes[FF_VOLUMES] = {};
 
 
-static int add_sal_handle(FSSALHandle sal_handle) {
+int salio_add_sal_handle(FSSALHandle sal_handle) {
     for(int i=0; i<FF_VOLUMES; i++){
         if(!fatfs_volumes[i].used){
             fatfs_volumes[i].handle = sal_handle;
@@ -46,20 +46,12 @@ int salio_get_drive_number(FSSALHandle handle){
     return -1;
 }
 
-int salio_mount(FSSALHandle sal_handle){
-    int index = salio_get_drive_number(sal_handle);
-    if(index<0)
-        index = add_sal_handle(sal_handle);
-    if(index<0)
-        return -1;
+void salio_remove_sal_volume(int pdrv){
+    fatfs_volumes[pdrv].used = false;
+}
 
-    TCHAR path[3];
-    snprintf(path, sizeof(path), "%d", index);
-    
-    debug_printf("%s: Mounting index: %d, path: %s, salhandle: 0x%08x\n", MODULE_NAME, index, path, sal_handle);
-
-    f_mount(&fatfs_volumes[index].fs, path, 0);
-    return 0;
+FATFS* salio_get_fatfs(int pdrv){
+    return &fatfs_volumes[pdrv].fs;
 }
 
 
