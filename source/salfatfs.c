@@ -54,10 +54,7 @@ static int fatfs_mount(FSSALHandle sal_handle){
     return res;
 }
 
-static FRESULT fatfs_open_file(FAT_OpenFileRequest *req, FSSALHandle handle){
-    int drive = salio_get_drive_number(handle);
-    if(drive<0)
-        return -1;
+static FRESULT fatfs_open_file(FAT_OpenFileRequest *req, int drive){
     BYTE mode = parse_mode_str(req->mode);
     TCHAR path_buff[sizeof(req->path)+4];
     snprintf(path_buff, sizeof(path_buff), "%d:%s", drive, req->path);
@@ -73,10 +70,30 @@ static FRESULT fatfs_open_file(FAT_OpenFileRequest *req, FSSALHandle handle){
 
 static int fatfs_message_dispatch(FAT_WorkMessage *message){
 
+    // commands not requiring drive
+    switch (message->command)
+    {
+    case 0xb:
+        break;
+    
+    }
+
+    // commands where drive can be invalid
     int drive = salio_get_drive_number(message->handle);
     switch(message->command){
         case 0x02:
             return fatfs_mount(message->handle);
+        case 0x2a:
+        case 0x2c: 
+            debug_printf("%s: Ignoring command %x\n", MODULE_NAME, message->command);
+            return;    
+    }
+
+    if(drive<0)
+        return -1;
+
+    //commands requirering a valid drive
+    switch(message->command){
         case 0x03:
             //deattached
         case 0x0a:
@@ -85,10 +102,10 @@ static int fatfs_message_dispatch(FAT_WorkMessage *message){
         case 0x2c: 
             debug_printf("%s: Ignoring command %x\n", MODULE_NAME, message->command);
             return;    
-        default:
-            debug_printf("%s: Unknown command %x!!!! HALTING\n", MODULE_NAME, message->command);
-            while(1);
     }
+
+    debug_printf("%s: Unknown command %x!!!! HALTING\n", MODULE_NAME, message->command);
+    while(1);
 }
 
 void salfatfs_process_message(FAT_WorkMessage *message){
