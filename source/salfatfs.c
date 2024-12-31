@@ -73,8 +73,12 @@ static int fatfs_message_dispatch(FAT_WorkMessage *message){
     // commands not requiring drive
     switch (message->command)
     {
-    case 0xb:
-        break;
+        // case 0xb:
+        //     break;
+        case 0x2a:
+        case 0x2c: 
+            debug_printf("%s: Ignoring command %x\n", MODULE_NAME, message->command);
+            return 0; 
     
     }
 
@@ -83,10 +87,7 @@ static int fatfs_message_dispatch(FAT_WorkMessage *message){
     switch(message->command){
         case 0x02:
             return fatfs_mount(message->handle);
-        case 0x2a:
-        case 0x2c: 
-            debug_printf("%s: Ignoring command %x\n", MODULE_NAME, message->command);
-            return;    
+   
     }
 
     if(drive<0)
@@ -94,18 +95,15 @@ static int fatfs_message_dispatch(FAT_WorkMessage *message){
 
     //commands requirering a valid drive
     switch(message->command){
-        case 0x03:
+        //case 0x03:
             //deattached
         case 0x0a:
             return fatfs_open_file(&message->request.open_file, message->handle);
-        case 0x2a:
-        case 0x2c: 
-            debug_printf("%s: Ignoring command %x\n", MODULE_NAME, message->command);
-            return;    
     }
 
     debug_printf("%s: Unknown command %x!!!! HALTING\n", MODULE_NAME, message->command);
     while(1);
+    return -1;
 }
 
 void salfatfs_process_message(FAT_WorkMessage *message){

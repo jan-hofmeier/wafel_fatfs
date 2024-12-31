@@ -10,6 +10,7 @@
 #include <wafel/trampoline.h>
 #include <wafel/ios/ipc_types.h>
 #include "fs_request.h"
+#include "salfatfs.h"
 
 const char *PLUGIN_NAME = "FATFS";
 
@@ -57,10 +58,10 @@ void fsfat_mount0(FAT_WorkMessage *message){
 }
 
 void fsfat_open_file(FAT_WorkMessage *message){
-    FAT_OpenFileRequest *req = &message->request;
+    FAT_OpenFileRequest *req = &message->request.open_file;
     FSSALHandle sal_hanlde = message->handle;
     debug_printf("%s: OpenFile(%s, %s) handle: %04x\n", PLUGIN_NAME, req->path, req->mode, sal_hanlde);
-    print_request_hex(req);
+    print_request_hex(&message->request);
 }
 
 void fsfat_command_switch(FAT_WorkMessage *message){
@@ -84,6 +85,9 @@ void fsfat_hook(trampoline_state *regs){
     FAT_WorkMessage *message = (FAT_WorkMessage*)regs->r[7];
     
     fsfat_command_switch(message);
+
+    salfatfs_process_message(message);
+    regs->lr = 0x1078a664;
     
     // debug_printf("FSFAT Request: %p", request);
     // for(int i=0; i<0x428; i++){
