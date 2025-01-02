@@ -13,10 +13,45 @@ void (*FSFAT_set_mounted1)(bool) = (void*)0x1078a614;
 
 
 static struct mounts {
+    FATFS *fs;
     bool mounted;
     int mount_count;
 
 } fatfs_mounts[FF_VOLUMES] = {};
+
+FATFS* ff_allocate_FATFS(void){
+    FATFS *fs = malloc_local(sizeof(FATFS));
+    if(!fs)
+        return fs;
+    fs->win = iosAllocAligned(HEAPID_LOCAL, FF_MAX_SS, 0x20);
+    if(!fs->win){
+        free_local(fs);
+        return NULL;
+    }
+    return fs;
+}
+
+void ff_free_FATFS(FATFS *fs){
+    free_local(fs->win);
+    free_local(fs);
+}
+
+FIL* ff_allocate_FIL(void){
+    FIL *fp = malloc_local(sizeof(FIL));
+    if(!fp)
+        return fp;
+    fp->buf = iosAllocAligned(HEAPID_LOCAL, FF_MAX_SS, 0x20);
+    if(!fp->buf){
+        free_local(fp);
+        return NULL;
+    }
+    return fp;
+}
+
+void ff_free_FIL(FIL *fp){
+    free_local(fp->buf);
+    free_local(fp);
+}
 
 static BYTE parse_mode_str(char *mode_str){
     BYTE mode = 0;
@@ -46,23 +81,36 @@ static BYTE parse_mode_str(char *mode_str){
     return mode;
 }
 
-static int fatfs_mount(FSSALHandle sal_handle, bool premount){
+static int fatfs_mount(FSSALHandle sal_handle){
     int index = salio_get_drive_number(sal_handle);
     if(index<0)
         index = salio_add_sal_handle(sal_handle);
     if(index<0)
         return -1;
 
+    if(fatfs_mounts[index].mounted){
+        fatfs_mounts[index].mount_count++;
+    }
+
     TCHAR path[5];
     snprintf(path, sizeof(path), "%d:", index);
     
     debug_printf("%s: Mounting index: %d, path: %s, salhandle: 0x%08x\n", MODULE_NAME, index, path, sal_handle);
 
-    FRESULT res = f_mount(salio_get_fatfs(index), path, 0);
+    if(!fatfs_mounts[index].fs){
+        fatfs_mounts[index].fs = ff_allocate_FATFS();
+        if(!fatfs_mounts[index].fs)
+            return -1;
+    }
+
+    FRESULT res = f_mount(fatfs_mounts[index].fs, path, 0);
     debug_printf("%s: mount returned %x\n", MODULE_NAME, res);
     if(res != FR_OK){
         salio_remove_sal_volume(index);
+        return -1;
     }
+    fatfs_mounts[index].mounted = true;
+    fatfs_mounts[index].mount_count = 1;
     return res;
 }
 
@@ -70,7 +118,7 @@ static FRESULT fatfs_open_file(FAT_OpenFileRequest *req, int drive){
     BYTE mode = parse_mode_str(req->mode);
     TCHAR path_buff[sizeof(req->path)+4];
     snprintf(path_buff, sizeof(path_buff), "%d:%s", drive, req->path);
-    FIL *fp = malloc_cross_process(sizeof(FIL));
+    FIL *fp = ff_allocate_FIL();
     FRESULT res = f_open(fp, path_buff, mode);
     debug_printf("%s: open_file %p, %s, 0x%x returned 0x%x\n", MODULE_NAME, fp, path_buff, mode, res);
     if(res != FR_OK){
@@ -106,7 +154,7 @@ static int fatfs_message_dispatch(FAT_WorkMessage *message){
     int drive = salio_get_drive_number(message->handle);
     switch(message->command){
         case 0x02:
-            return fatfs_mount(message->handle, false);
+            return fatfs_mount(message->handle);
    
     }
 

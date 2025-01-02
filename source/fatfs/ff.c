@@ -23,8 +23,6 @@
 #include "ff.h"			/* Declarations of FatFs API */
 #include "diskio.h"		/* Declarations of device I/O functions */
 
-#include <wafel/ios/memory.h>
-
 
 /*--------------------------------------------------------------------------
 
@@ -3682,10 +3680,6 @@ FRESULT f_mount (
 	FRESULT res;
 	const TCHAR *rp = path;
 
-	fs->win = iosAllocAligned(HEAPID_LOCAL, FF_MAX_SS, 0x20);
-	if(!fp->buf)
-		res = FR_INT_ERR;
-
 	/* Get volume ID (logical drive number) */
 	vol = get_ldnumber(&rp);
 	if (vol < 0) return FR_INVALID_DRIVE;
@@ -3886,13 +3880,6 @@ FRESULT f_open (
 			fp->fptr = 0;		/* Set file pointer top of the file */
 #if !FF_FS_READONLY
 #if !FF_FS_TINY
-			fp->buf = iosAllocAligned(HEAPID_LOCAL, FF_MAX_SS, 0x20);
-__attribute__ ((weak)) __attribute__((used)) void debug_printf(const char *format, ...);
-			debug_printf("FATFS: fp->buf: %p\n", fp->buf);
-			if(!fp->buf)
-				res = FR_INT_ERR;
-		}
-		if (res == FR_OK) {
 			memset(fp->buf, 0, FF_MAX_SS);	/* Clear sector buffer */
 #endif
 			if ((mode & FA_SEEKEND) && fp->obj.objsize > 0) {	/* Seek to end of file if FA_OPEN_APPEND is specified */

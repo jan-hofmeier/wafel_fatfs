@@ -20,7 +20,6 @@ uint32_t (*FSSAL_RawWrite)(FSSALHandle device,uint32_t lba_hi,uint lba, uint32_t
 
 struct sal_fatfs {
     FSSALHandle handle;
-    FATFS fs;
     bool used;
 } typedef sal_fatfs;
 
@@ -49,11 +48,6 @@ int salio_get_drive_number(FSSALHandle handle){
 void salio_remove_sal_volume(int pdrv){
     fatfs_volumes[pdrv].used = false;
 }
-
-FATFS* salio_get_fatfs(int pdrv){
-    return &fatfs_volumes[pdrv].fs;
-}
-
 
 DSTATUS disk_initialize (BYTE pdrv){
     return 0;
