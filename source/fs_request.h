@@ -114,7 +114,7 @@ struct FAT_WorkMessage {
     undefined field10_0xd;
     undefined field11_0xe;
     undefined field12_0xf;
-    FSSALHandle handle;
+    uint volume_handle;
     fs_response * worker;
     uint command;
     void (*callback)(int, void*);
@@ -122,3 +122,36 @@ struct FAT_WorkMessage {
     union FAT_Request request;
 };
 
+typedef struct FSVolumeArgs {
+    uint * driver_ctx; /* handles, device_params, arb pointers.. */
+    int field1_0x4;
+    int state;
+    uint vfs_devtype;
+    uint field4_0x10;
+    uint device_handle;
+    uint start_lba_hi;
+    uint start_lba;
+    uint block_count;
+    uint block_count_hi;
+    uint block_size;
+    uint partition_count;
+    uint partition_no;
+    uint field13_0x34;
+    short field14_0x38;
+    short field15_0x3a;
+    short field16_0x3c;
+    short field17_0x3e;
+    short field18_0x40;
+    undefined field19_0x42;
+    undefined field20_0x43;
+    uint field21_0x44;
+    uint field22_0x48;
+    uint allowed_ops_ex;
+    short device_type_hi;
+    short device_type;
+    uint alignment_smth;
+    uint field27_0x58;
+    char field28_0x5c[128];
+    char field29_0xdc[128];
+    int (* cb)(struct FAT_WorkMessage *);
+} FSVolumeArgs;

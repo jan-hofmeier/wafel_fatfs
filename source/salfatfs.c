@@ -13,11 +13,42 @@ void (*FSFAT_set_mounted1)(bool) = (void*)0x1078a614;
 
 
 static struct mounts {
+    bool used;
+    uint volume_handle;
     FATFS *fs;
     bool mounted;
     int mount_count;
 
 } fatfs_mounts[FF_VOLUMES] = {};
+
+
+int salfatfs_find_index(uint volume_handle){
+    for(int i=0; i<FF_VOLUMES; i++){
+        if(fatfs_mounts[i].used && fatfs_mounts[i].volume_handle)
+            return i;
+    }
+    return -1;
+}
+
+int salfatfs_add_volume(uint volume_handle, uint dev_handle){
+    int index = salfatfs_find_index(volume_handle);
+    if(index>=0){
+        fatfs_mounts[index].mounted = false;
+        salio_set_dev_handle(index, dev_handle);
+        return index;
+    }
+
+    for(index=0; index<FF_VOLUMES; index++){
+        if(!fatfs_mounts[index].used){
+            fatfs_mounts[index].used = true;
+            fatfs_mounts[index].volume_handle = volume_handle;
+            fatfs_mounts[index].mounted = false;
+            salio_set_dev_handle(index, dev_handle);
+            return index;
+        }
+    }
+    return -1;
+}
 
 FATFS* ff_allocate_FATFS(void){
     FATFS *fs = malloc_local(sizeof(FATFS));
@@ -81,36 +112,29 @@ static BYTE parse_mode_str(char *mode_str){
     return mode;
 }
 
-static int fatfs_mount(FSSALHandle sal_handle){
-    int index = salio_get_drive_number(sal_handle);
-    if(index<0)
-        index = salio_add_sal_handle(sal_handle);
-    if(index<0)
-        return -1;
-
-    if(fatfs_mounts[index].mounted){
-        fatfs_mounts[index].mount_count++;
+static int fatfs_mount(int drive){
+    if(fatfs_mounts[drive].mounted){
+        fatfs_mounts[drive].mount_count++;
     }
 
     TCHAR path[5];
-    snprintf(path, sizeof(path), "%d:", index);
+    snprintf(path, sizeof(path), "%d:", drive);
     
-    debug_printf("%s: Mounting index: %d, path: %s, salhandle: 0x%08x\n", MODULE_NAME, index, path, sal_handle);
+    debug_printf("%s: Mounting index: %d, path: %s, volume_handle: 0x%08x\n", MODULE_NAME, drive, path, fatfs_mounts[drive].volume_handle);
 
-    if(!fatfs_mounts[index].fs){
-        fatfs_mounts[index].fs = ff_allocate_FATFS();
-        if(!fatfs_mounts[index].fs)
+    if(!fatfs_mounts[drive].fs){
+        fatfs_mounts[drive].fs = ff_allocate_FATFS();
+        if(!fatfs_mounts[drive].fs)
             return -1;
     }
 
-    FRESULT res = f_mount(fatfs_mounts[index].fs, path, 0);
+    FRESULT res = f_mount(fatfs_mounts[drive].fs, path, 0);
     debug_printf("%s: mount returned %x\n", MODULE_NAME, res);
     if(res != FR_OK){
-        salio_remove_sal_volume(index);
         return -1;
     }
-    fatfs_mounts[index].mounted = true;
-    fatfs_mounts[index].mount_count = 1;
+    fatfs_mounts[drive].mounted = true;
+    fatfs_mounts[drive].mount_count = 1;
     return res;
 }
 
@@ -150,19 +174,16 @@ static int fatfs_message_dispatch(FAT_WorkMessage *message){
     
     }
 
-    // commands where drive can be invalid
-    int drive = salio_get_drive_number(message->handle);
-    switch(message->command){
-        case 0x02:
-            return fatfs_mount(message->handle);
-   
-    }
-
-    if(drive<0)
+    int drive = salfatfs_find_index(message->volume_handle);
+    if(drive<0){
+        debug_printf("%s: Unknown volume: %08X\n", MODULE_NAME, message->volume_handle);
         return -1;
+    }
 
     //commands requirering a valid drive
     switch(message->command){
+        case 0x02:
+            return fatfs_mount(drive);
         //case 0x03:
             //deattached
         case 0x0a:

@@ -54,12 +54,12 @@ void fsfat_mount0(FAT_WorkMessage *message){
 
     // debug_printf("Message:");
     // print_hex((u8*)message, 0x24);
-    //print_request_hex(&message->request);
+    print_request_hex(&message->request);
 }
 
 void fsfat_open_file(FAT_WorkMessage *message){
     FAT_OpenFileRequest *req = &message->request.open_file;
-    FSSALHandle sal_hanlde = message->handle;
+    FSSALHandle sal_hanlde = message->volume_handle;
     debug_printf("%s: OpenFile(%s, %s) handle: %04x\n", PLUGIN_NAME, req->path, req->mode, sal_hanlde);
     //print_request_hex(&message->request);
 }
@@ -105,6 +105,14 @@ void fsfat_hook(trampoline_state *regs){
 
 }
 
+uint fsfat_device_attach_hook(uint fs_handle, uint existing_volume, FSVolumeArgs *volume_args, int r3, uint (*add_volume)(uint, uint, FSVolumeArgs*)){
+    uint device_handle = volume_args->device_handle;
+    uint volume_handle = add_volume(fs_handle, existing_volume, volume_args);
+    debug_printf("%s: Attached volume %08X on device %08X\n", PLUGIN_NAME, volume_handle, device_handle);
+    salfatfs_add_volume(volume_handle, device_handle);
+    return volume_handle; 
+}
+
 void fsfat_ret_hook(trampoline_state *regs){
     FAT_WorkMessage *message = (FAT_WorkMessage*)regs->r[7];
     int ret = regs->r[5];
@@ -118,7 +126,7 @@ void fsfat_init_res_hook(trampoline_state *regs){
 
 void fswfs_hook(trampoline_state *regs){
     FAT_WorkMessage *message = (FAT_WorkMessage*)regs->r[8];
-    debug_printf("WFS: %08x %08x %02x\n", message->handle, message->worker, message->command);
+    debug_printf("WFS: %08x %08x %02x\n", message->volume_handle, message->worker, message->command);
     fsfat_command_switch(message);
 }
 
@@ -148,6 +156,8 @@ void kern_main()
     debug_printf("init_linking symbol at: %08x\n", wafel_find_symbol("init_linking"));
 
     trampoline_hook_before(0x1078a688, fsfat_hook);
+    trampoline_blreplace(0x1078a388, fsfat_device_attach_hook);
+
     trampoline_hook_before(0x1078a8dc, fsfat_ret_hook);
     trampoline_hook_before(0x1078a548, fsfat_init_res_hook);
     

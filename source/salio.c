@@ -18,35 +18,11 @@ uint32_t (*FSSAL_RawRead)(FSSALHandle device,uint32_t lba_hi,uint lba, uint32_t 
 uint32_t (*FSSAL_RawWrite)(FSSALHandle device,uint32_t lba_hi,uint lba, uint32_t blkCount,void *buf,
                       void (*cb)(int, void*),void *cb_ctx) = (void*)0x0107328a0;
 
-struct sal_fatfs {
-    FSSALHandle handle;
-    bool used;
-} typedef sal_fatfs;
 
-static sal_fatfs fatfs_volumes[FF_VOLUMES] = {};
+static uint32_t device_handles[FF_MAX_SS];
 
-
-int salio_add_sal_handle(FSSALHandle sal_handle) {
-    for(int i=0; i<FF_VOLUMES; i++){
-        if(!fatfs_volumes[i].used){
-            fatfs_volumes[i].handle = sal_handle;
-            fatfs_volumes[i].used = true;
-            return i;
-        }
-    }
-    return -1;
-}
-
-int salio_get_drive_number(FSSALHandle handle){
-    for(int i=0; i<FF_VOLUMES; i++){
-        if(fatfs_volumes[i].used && fatfs_volumes[i].handle == handle)
-            return i;
-    }
-    return -1;
-}
-
-void salio_remove_sal_volume(int pdrv){
-    fatfs_volumes[pdrv].used = false;
+void salio_set_dev_handle(int index, uint dev_handle){
+    device_handles[index] = dev_handle;
 }
 
 DSTATUS disk_initialize (BYTE pdrv){
@@ -76,7 +52,8 @@ static DRESULT sync_rw(BYTE pdrv, BYTE* buff, LBA_t sector, UINT count, uint32_t
         debug_printf("%s: Error creating Semaphore: 0x%X\n", MODULE_NAME, ctx.semaphore);
         return RES_NOTRDY;
     }
-    int res = raw_rw(/* fatfs_volumes[pdrv].handle */ *((int*)0x10bb7e4c), sector>>32, sector, count, buff, rw_callback, &ctx);
+    //int res = raw_rw(/* fatfs_volumes[pdrv].handle */ *((int*)0x10bb7e4c), sector>>32, sector, count, buff, rw_callback, &ctx);
+    int res = raw_rw(device_handles[pdrv], sector>>32, sector, count, buff, rw_callback, &ctx);
     debug_printf("%s: raw_rw returned: %x\n", MODULE_NAME, res);
     if(!res){
         iosWaitSemaphore(ctx.semaphore, 0);
@@ -88,13 +65,14 @@ static DRESULT sync_rw(BYTE pdrv, BYTE* buff, LBA_t sector, UINT count, uint32_t
 }
 
 DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count) {
-    debug_printf("%s: disk_read(%d, %p, %ld, %d)\n", MODULE_NAME, pdrv, buff, sector, count);
+    debug_printf("%s: disk_read(%d, %p, %d, %d)\n", MODULE_NAME, pdrv, buff, (uint)sector, count);
     return sync_rw(pdrv, buff, sector, count, FSSAL_RawRead);
 }
 
 DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count) {
     return sync_rw(pdrv, (BYTE*)buff, sector, count, FSSAL_RawWrite);
 }
+
 DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff){
     debug_printf("%s: disk_ioctl(%i, %i, %p)\n", pdrv, cmd, buff);
     debug_printf("UNKOWN IOCTL %i: HALTING\n", cmd);
