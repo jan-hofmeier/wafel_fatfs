@@ -23,6 +23,8 @@
 #include "ff.h"			/* Declarations of FatFs API */
 #include "diskio.h"		/* Declarations of device I/O functions */
 
+#include <wafel/ios/memory.h>
+
 
 /*--------------------------------------------------------------------------
 
@@ -1121,7 +1123,7 @@ static FRESULT sync_fs (	/* Returns FR_OK or FR_DISK_ERR */
 			fs->fsi_flag = 0;
 			if (fs->fs_type == FS_FAT32) {	/* FAT32: Update FSInfo sector */
 				/* Create FSInfo structure */
-				memset(fs->win, 0, sizeof fs->win);
+				memset(fs->win, 0, FF_MAX_SS);
 				st_dword(fs->win + FSI_LeadSig, 0x41615252);		/* Leading signature */
 				st_dword(fs->win + FSI_StrucSig, 0x61417272);		/* Structure signature */
 				st_dword(fs->win + FSI_Free_Count, fs->free_clst);	/* Number of free clusters */
@@ -3680,6 +3682,9 @@ FRESULT f_mount (
 	FRESULT res;
 	const TCHAR *rp = path;
 
+	fs->win = iosAllocAligned(HEAPID_LOCAL, FF_MAX_SS, 0x20);
+	if(!fp->buf)
+		res = FR_INT_ERR;
 
 	/* Get volume ID (logical drive number) */
 	vol = get_ldnumber(&rp);
@@ -3881,7 +3886,14 @@ FRESULT f_open (
 			fp->fptr = 0;		/* Set file pointer top of the file */
 #if !FF_FS_READONLY
 #if !FF_FS_TINY
-			memset(fp->buf, 0, sizeof fp->buf);	/* Clear sector buffer */
+			fp->buf = iosAllocAligned(HEAPID_LOCAL, FF_MAX_SS, 0x20);
+__attribute__ ((weak)) __attribute__((used)) void debug_printf(const char *format, ...);
+			debug_printf("FATFS: fp->buf: %p\n", fp->buf);
+			if(!fp->buf)
+				res = FR_INT_ERR;
+		}
+		if (res == FR_OK) {
+			memset(fp->buf, 0, FF_MAX_SS);	/* Clear sector buffer */
 #endif
 			if ((mode & FA_SEEKEND) && fp->obj.objsize > 0) {	/* Seek to end of file if FA_OPEN_APPEND is specified */
 				fp->fptr = fp->obj.objsize;			/* Offset to seek */

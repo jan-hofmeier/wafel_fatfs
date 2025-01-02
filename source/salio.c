@@ -69,6 +69,7 @@ struct rw_cb_ctx {
 } typedef rw_cb_ctx;
 
 static void rw_callback(int res, void *ctx){
+    debug_printf("%s: rw_callback res: %x\n", MODULE_NAME, res);
     rw_cb_ctx *c = (rw_cb_ctx *)ctx;
     c->res = res;
     iosSignalSemaphore(c->semaphore);
@@ -81,16 +82,19 @@ static DRESULT sync_rw(BYTE pdrv, BYTE* buff, LBA_t sector, UINT count, uint32_t
         debug_printf("%s: Error creating Semaphore: 0x%X\n", MODULE_NAME, ctx.semaphore);
         return RES_NOTRDY;
     }
-    int res = raw_rw(fatfs_volumes[pdrv].handle, sector>>32, sector, count, buff, rw_callback, &ctx);
+    int res = raw_rw(/* fatfs_volumes[pdrv].handle */ *((int*)0x10bb7e4c), sector>>32, sector, count, buff, rw_callback, &ctx);
+    debug_printf("%s: raw_rw returned: %x\n", MODULE_NAME, res);
     if(!res){
         iosWaitSemaphore(ctx.semaphore, 0);
         res = ctx.res;
     }
     iosDestroySemaphore(ctx.semaphore);
+    debug_printf("%s: sync_rw res: %x\n", MODULE_NAME, res);
     return res?RES_ERROR:RES_OK;
 }
 
 DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count) {
+    debug_printf("%s: disk_read(%d, %p, %ld, %d)\n", MODULE_NAME, pdrv, buff, sector, count);
     return sync_rw(pdrv, buff, sector, count, FSSAL_RawRead);
 }
 

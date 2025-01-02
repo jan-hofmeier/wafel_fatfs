@@ -33,8 +33,8 @@ void print_request_hex(FAT_Request *req){
 void fsfat_init(FAT_WorkMessage *message){
     //fs_response *response = message->response;
     debug_printf("%s: Init\n", PLUGIN_NAME);
-    debug_printf("Message:");
-    print_hex((u8*)message, 0x24);
+    // debug_printf("Message:");
+    // print_hex((u8*)message, 0x24);
     //request is all zero
     //print_request_hex(&message->request);
     // response->set = 1;
@@ -45,23 +45,23 @@ void fsfat_mount1(FAT_WorkMessage *message){
     debug_printf("%s: Mount 1\n", PLUGIN_NAME);
     // request is all zero
     //print_request_hex(&message->request);
-    debug_printf("Message:");
-    print_hex((u8*)message, 0x24);
+    //debug_printf("Message:");
+    //print_hex((u8*)message, 0x24);
 }
 
 void fsfat_mount0(FAT_WorkMessage *message){
     debug_printf("%s: Mount 0\n", PLUGIN_NAME);
 
-    debug_printf("Message:");
-    print_hex((u8*)message, 0x24);
-    print_request_hex(&message->request);
+    // debug_printf("Message:");
+    // print_hex((u8*)message, 0x24);
+    //print_request_hex(&message->request);
 }
 
 void fsfat_open_file(FAT_WorkMessage *message){
     FAT_OpenFileRequest *req = &message->request.open_file;
     FSSALHandle sal_hanlde = message->handle;
     debug_printf("%s: OpenFile(%s, %s) handle: %04x\n", PLUGIN_NAME, req->path, req->mode, sal_hanlde);
-    print_request_hex(&message->request);
+    //print_request_hex(&message->request);
 }
 
 void fsfat_command_switch(FAT_WorkMessage *message){
@@ -84,6 +84,10 @@ void fsfat_command_switch(FAT_WorkMessage *message){
 void fsfat_hook(trampoline_state *regs){
     FAT_WorkMessage *message = (FAT_WorkMessage*)regs->r[7];
     
+    debug_printf("FSFAT_ActiveDeviceHandle: %X\n", *((int*)0x10bb7e4c));
+    debug_printf("FATFS Message:");
+    print_hex((u8*)message, 0x24);
+
     fsfat_command_switch(message);
 
     salfatfs_process_message(message);
@@ -101,10 +105,33 @@ void fsfat_hook(trampoline_state *regs){
 
 }
 
+void fsfat_ret_hook(trampoline_state *regs){
+    FAT_WorkMessage *message = (FAT_WorkMessage*)regs->r[7];
+    int ret = regs->r[5];
+    debug_printf("%s: ret: %x, callback: %p, worker->ret: %x, worker->set: %x\n", PLUGIN_NAME, ret, message->callback, message->worker->retval, message->worker->set);
+}
+
+void fsfat_init_res_hook(trampoline_state *regs){
+    int ret = regs->r[0];
+    debug_printf("%s: MsgWorkThread Init returend: %x\n", PLUGIN_NAME, ret);
+}
+
 void fswfs_hook(trampoline_state *regs){
     FAT_WorkMessage *message = (FAT_WorkMessage*)regs->r[8];
     debug_printf("WFS: %08x %08x %02x\n", message->handle, message->worker, message->command);
     fsfat_command_switch(message);
+}
+
+int raw_read_aligment_hook(void *r0, int r1, int r2, int r3, int (*org_func)(void*, int)) {
+    debug_printf("%s: FSSAL_RawRead calling %p with (%p, 0x%x)\n", PLUGIN_NAME, org_func, r0, r1);
+    int ret = org_func(r0, r1);
+    debug_printf("returned 0x%x\n", ret);
+    return ret;
+}
+
+void raw_read_aligment_hook2(trampoline_state *regs) {
+    debug_printf("%s: FSSAL_RawRead calling FUN_107f6ff8 with (%p, 0x%x)\n", PLUGIN_NAME, regs->r[0], regs->r[1]);
+
 }
 
 
@@ -121,6 +148,12 @@ void kern_main()
     debug_printf("init_linking symbol at: %08x\n", wafel_find_symbol("init_linking"));
 
     trampoline_hook_before(0x1078a688, fsfat_hook);
+    trampoline_hook_before(0x1078a8dc, fsfat_ret_hook);
+    trampoline_hook_before(0x1078a548, fsfat_init_res_hook);
+    
+    //trampoline_blreplace(0x10732c1c, raw_read_aligment_hook);
+    //trampoline_hook_before(0x10732c1c, raw_read_aligment_hook2);
+
     //trampoline_hook_before(0x1073e9b4, fswfs_hook);
 
 }
