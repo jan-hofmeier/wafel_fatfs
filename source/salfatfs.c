@@ -188,7 +188,7 @@ static FSError fatfs_open_file(FAT_OpenFileRequest *req, int drive){
     return fatfs_map_error(res);
 }
 
-static FSError fatfs_stat_file(FAT_StatFileRequest *reg) {
+static FSError fatfs_stat_file(FAT_StatFileRequest *reg, int drive) {
     PathFIL* fp = *(reg->fp);
     FILINFO info;
     debug_printf("%s: StatFile(%s)", MODULE_NAME, fp->path);
@@ -198,7 +198,11 @@ static FSError fatfs_stat_file(FAT_StatFileRequest *reg) {
         stat->flags = 0x0d000000;
         stat->mode = (info.fattrib & AM_RDO) ? 0x444:0x666;
         stat->size = info.fsize;
-        stat->allocSize = info.fsize;
+
+        FATFS *fs = fatfs_mounts[drive].fs;
+        uint32_t cs = fs->csize * fs->ssize;
+        uint32_t slack = info.fsize % cs;
+        stat->allocSize = info.fsize + slack;
         // stat->created = 0;
         // stat->modified = 0;
     }
@@ -242,7 +246,7 @@ static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
         case 0x0a:
             return fatfs_open_file(&message->request.open_file, drive);
         case 0x10:
-            return fatfs_stat_file(&message->request.stat_file);
+            return fatfs_stat_file(&message->request.stat_file, drive);
     }
 
     debug_printf("%s: Unknown command 0x%x!!!! HALTING\n", MODULE_NAME, message->command);
