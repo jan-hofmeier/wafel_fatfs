@@ -1,5 +1,188 @@
 #pragma once
 
+#include "wut_structsize.h"
+#include <wafel/types.h>
+
+
+/* WUT Stuff */
+
+typedef uint32_t FSDirectoryHandle;
+typedef uint32_t FSFileHandle;
+typedef uint32_t FSPriority;
+typedef uint64_t FSTime;
+
+typedef enum FSError
+{
+   FS_ERROR_OK                      = 0,
+   FS_ERROR_NOT_INIT                = -0x30001,
+   FS_ERROR_BUSY                    = -0x30002,
+   FS_ERROR_CANCELLED               = -0x30003,
+   FS_ERROR_END_OF_DIR              = -0x30004,
+   FS_ERROR_END_OF_FILE             = -0x30005,
+   FS_ERROR_MAX_MOUNT_POINTS        = -0x30010,
+   FS_ERROR_MAX_VOLUMES             = -0x30011,
+   FS_ERROR_MAX_CLIENTS             = -0x30012,
+   FS_ERROR_MAX_FILES               = -0x30013,
+   FS_ERROR_MAX_DIRS                = -0x30014,
+   FS_ERROR_ALREADY_OPEN            = -0x30015,
+   FS_ERROR_ALREADY_EXISTS          = -0x30016,
+   FS_ERROR_NOT_FOUND               = -0x30017,
+   FS_ERROR_NOT_EMPTY               = -0x30018,
+   FS_ERROR_ACCESS_ERROR            = -0x30019,
+   FS_ERROR_PERMISSION_ERROR        = -0x3001A,
+   FS_ERROR_DATA_CORRUPTED          = -0x3001B,
+   FS_ERROR_STORAGE_FULL            = -0x3001C,
+   FS_ERROR_JOURNAL_FULL            = -0x3001D,
+   FS_ERROR_UNAVAILABLE_COMMAND     = -0x3001F,
+   FS_ERROR_UNSUPPORTED_COMMAND     = -0x30020,
+   FS_ERROR_INVALID_PARAM           = -0x30021,
+   FS_ERROR_INVALID_PATH            = -0x30022,
+   FS_ERROR_INVALID_BUFFER          = -0x30023,
+   FS_ERROR_INVALID_ALIGNMENT       = -0x30024,
+   FS_ERROR_INVALID_CLIENTHANDLE    = -0x30025,
+   FS_ERROR_INVALID_FILEHANDLE      = -0x30026,
+   FS_ERROR_INVALID_DIRHANDLE       = -0x30027,
+   FS_ERROR_NOT_FILE                = -0x30028,
+   FS_ERROR_NOT_DIR                 = -0x30029,
+   FS_ERROR_FILE_TOO_BIG            = -0x3002A,
+   FS_ERROR_OUT_OF_RANGE            = -0x3002B,
+   FS_ERROR_OUT_OF_RESOURCES        = -0x3002C,
+   FS_ERROR_MEDIA_NOT_READY         = -0x30040,
+   FS_ERROR_MEDIA_ERROR             = -0x30041,
+   FS_ERROR_WRITE_PROTECTED         = -0x30042,
+   FS_ERROR_INVALID_MEDIA           = -0x30043,
+} FSError;
+
+typedef enum FSErrorFlag
+{
+   FS_ERROR_FLAG_NONE               =  0x0,
+   FS_ERROR_FLAG_MAX                =  0x1,
+   FS_ERROR_FLAG_ALREADY_OPEN       =  0x2,
+   FS_ERROR_FLAG_EXISTS             =  0x4,
+   FS_ERROR_FLAG_NOT_FOUND          =  0x8,
+   FS_ERROR_FLAG_NOT_FILE           =  0x10,
+   FS_ERROR_FLAG_NOT_DIR            =  0x20,
+   FS_ERROR_FLAG_ACCESS_ERROR       =  0x40,
+   FS_ERROR_FLAG_PERMISSION_ERROR   =  0x80,
+   FS_ERROR_FLAG_FILE_TOO_BIG       =  0x100,
+   FS_ERROR_FLAG_STORAGE_FULL       =  0x200,
+   FS_ERROR_FLAG_UNSUPPORTED_CMD    =  0x400,
+   FS_ERROR_FLAG_JOURNAL_FULL       =  0x800,
+   FS_ERROR_FLAG_ALL                =  0xFFFFFFFF,
+} FSErrorFlag;
+
+typedef enum FSStatus
+{
+   FS_STATUS_OK                     = 0,
+   FS_STATUS_CANCELLED              = -1,
+   FS_STATUS_END                    = -2,
+   FS_STATUS_MAX                    = -3,
+   FS_STATUS_ALREADY_OPEN           = -4,
+   FS_STATUS_EXISTS                 = -5,
+   FS_STATUS_NOT_FOUND              = -6,
+   FS_STATUS_NOT_FILE               = -7,
+   FS_STATUS_NOT_DIR                = -8,
+   FS_STATUS_ACCESS_ERROR           = -9,
+   FS_STATUS_PERMISSION_ERROR       = -10,
+   FS_STATUS_FILE_TOO_BIG           = -11,
+   FS_STATUS_STORAGE_FULL           = -12,
+   FS_STATUS_JOURNAL_FULL           = -13,
+   FS_STATUS_UNSUPPORTED_CMD        = -14,
+   FS_STATUS_MEDIA_NOT_READY        = -15,
+   FS_STATUS_MEDIA_ERROR            = -17,
+   FS_STATUS_CORRUPTED              = -18,
+   FS_STATUS_FATAL_ERROR            = -0x400,
+} FSStatus;
+
+typedef enum FSMode :u32
+{
+   FS_MODE_READ_OWNER                   = 0x400,
+   FS_MODE_WRITE_OWNER                  = 0x200,
+   FS_MODE_EXEC_OWNER                   = 0x100,
+
+   FS_MODE_READ_GROUP                   = 0x040,
+   FS_MODE_WRITE_GROUP                  = 0x020,
+   FS_MODE_EXEC_GROUP                   = 0x010,
+
+   FS_MODE_READ_OTHER                   = 0x004,
+   FS_MODE_WRITE_OTHER                  = 0x002,
+   FS_MODE_EXEC_OTHER                   = 0x001,
+} FSMode;
+
+//! Flags for \link FSStat \endlink.
+//! One can return multiple flags, so for example a file that's encrypted or a linked directory.
+typedef enum FSStatFlags : u32
+{
+   //! The retrieved file entry is a (link to a) directory.
+   FS_STAT_DIRECTORY                = 0x80000000,
+   //! The retrieved file entry also has a quota set.
+   FS_STAT_QUOTA                    = 0x60000000,
+   //! The retrieved file entry is a (link to a) file.
+   FS_STAT_FILE                     = 0x01000000,
+   //! The retrieved file entry also is encrypted and can't be opened (see vWii files for example).
+   FS_STAT_ENCRYPTED_FILE           = 0x00800000,
+   //! The retrieved file entry also is a link to a different file on the filesystem.
+   //! Note: It's currently not known how one can read the linked-to file entry.
+   FS_STAT_LINK                     = 0x00010000,
+} FSStatFlags;
+
+typedef enum FSVolumeState
+{
+   FS_VOLUME_STATE_INITIAL          = 0,
+   FS_VOLUME_STATE_READY            = 1,
+   FS_VOLUME_STATE_NO_MEDIA         = 2,
+   FS_VOLUME_STATE_INVALID_MEDIA    = 3,
+   FS_VOLUME_STATE_DIRTY_MEDIA      = 4,
+   FS_VOLUME_STATE_WRONG_MEDIA      = 5,
+   FS_VOLUME_STATE_MEDIA_ERROR      = 6,
+   FS_VOLUME_STATE_DATA_CORRUPTED   = 7,
+   FS_VOLUME_STATE_WRITE_PROTECTED  = 8,
+   FS_VOLUME_STATE_JOURNAL_FULL     = 9,
+   FS_VOLUME_STATE_FATAL            = 10,
+   FS_VOLUME_STATE_INVALID          = 11,
+} FSVolumeState;
+
+typedef enum FSMediaState {
+    FS_MEDIA_STATE_READY = 0,
+    FS_MEDIA_STATE_NO_MEDIA = 1,
+    FS_MEDIA_STATE_INVALID_MEDIA = 2,
+    FS_MEDIA_STATE_DIRTY_MEDIA = 3,
+    FS_MEDIA_STATE_MEDIA_ERROR = 4,
+} FSMediaState;
+
+
+typedef struct WUT_PACKED FSStat
+{
+   FSStatFlags flags;
+   FSMode mode;
+   uint32_t owner;
+   uint32_t group;
+   uint32_t size;
+   uint32_t allocSize;
+   uint64_t quotaSize;
+   uint32_t entryId;
+   FSTime created;
+   FSTime modified;
+   WUT_UNKNOWN_BYTES(0x30);
+} FSStat;
+
+
+WUT_CHECK_OFFSET(FSStat, 0x00, flags);
+WUT_CHECK_OFFSET(FSStat, 0x04, mode);
+WUT_CHECK_OFFSET(FSStat, 0x08, owner);
+WUT_CHECK_OFFSET(FSStat, 0x0C, group);
+WUT_CHECK_OFFSET(FSStat, 0x10, size);
+WUT_CHECK_OFFSET(FSStat, 0x14, allocSize);
+WUT_CHECK_OFFSET(FSStat, 0x18, quotaSize);
+WUT_CHECK_OFFSET(FSStat, 0x20, entryId);
+WUT_CHECK_OFFSET(FSStat, 0x24, created);
+WUT_CHECK_OFFSET(FSStat, 0x2C, modified);
+WUT_CHECK_SIZE(FSStat, 0x64);
+
+
+/* WUT Stuff  end*/
+
+
 typedef unsigned char   undefined;
 
 typedef unsigned char    byte;
@@ -85,6 +268,11 @@ struct FAT_OpenFileRequest{
     uint unknown2;
 } typedef FAT_OpenFileRequest;
 
+typedef struct FAT_StatFileRequest {
+    void **fp;
+    void *stat;
+} FAT_StatFileRequest;
+
 union FAT_Request {
     struct FAT_FormatDeviceRequest format_device;
     struct FAT_UnmountRequest unmount;
@@ -92,6 +280,7 @@ union FAT_Request {
     struct FAT_ReadDirRequest readdir;
     struct FAT_BaseRequest _b; /* fake to pad struct */
     FAT_OpenFileRequest open_file;
+    FAT_StatFileRequest stat_file;
 };
 
 
@@ -117,7 +306,7 @@ struct FAT_WorkMessage {
     uint volume_handle;
     fs_response * worker;
     uint command;
-    void (*callback)(int, void*);
+    void (*callback)(FSError, void*);
     void* calback_data;
     union FAT_Request request;
 };

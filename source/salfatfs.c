@@ -5,6 +5,7 @@
 #include <wafel/ios/memory.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 static const char* MODULE_NAME = "SALFATFS";
 
@@ -84,6 +85,33 @@ void ff_free_FIL(FIL *fp){
     free_local(fp);
 }
 
+static FSError fatfs_map_error(FRESULT error){
+    switch (error)
+    {
+        case FR_OK: return FS_ERROR_OK;
+        case FR_DISK_ERR: return FS_ERROR_MEDIA_ERROR;			/* (1) A hard error occurred in the low level disk I/O layer */
+        case FR_INT_ERR: return FS_ERROR_OUT_OF_RESOURCES;				/* (2) Assertion failed */
+        case FR_NOT_READY: return FS_ERROR_MEDIA_NOT_READY;			/* (3) The physical drive does not work */
+        case FR_NO_FILE: return FS_ERROR_NOT_FOUND;				/* (4) Could not find the file */
+        case FR_NO_PATH: return FS_ERROR_NOT_FOUND;				/* (5) Could not find the path */
+        case FR_INVALID_NAME: return FS_ERROR_INVALID_PATH;		/* (6) The path name format is invalid */
+        case FR_DENIED: return FS_ERROR_PERMISSION_ERROR;				/* (7) Access denied due to a prohibited access or directory full */
+        case FR_EXIST: return FS_ERROR_PERMISSION_ERROR;				/* (8) Access denied due to a prohibited access */
+        case FR_INVALID_OBJECT: return FS_ERROR_INVALID_FILEHANDLE;		/* (9) The file/directory object is invalid */
+        case FR_WRITE_PROTECTED: return FS_ERROR_WRITE_PROTECTED;		/* (10) The physical drive is write protected */
+        case FR_INVALID_DRIVE: return FS_ERROR_INVALID_MEDIA;		/* (11) The logical drive number is invalid */
+        case FR_NOT_ENABLED: return FS_ERROR_NOT_INIT;			/* (12) The volume has no work area */
+        case FR_NO_FILESYSTEM: return FS_ERROR_MEDIA_NOT_READY;		/* (13) Could not find a valid FAT volume */
+        case FR_MKFS_ABORTED: return FS_ERROR_CANCELLED;		/* (14) The f_mkfs function aborted due to some problem */
+        case FR_TIMEOUT: return FS_ERROR_BUSY;				/* (15) Could not take control of the volume within defined period */
+        case FR_LOCKED: return FS_ERROR_BUSY;				/* (16) The operation is rejected according to the file sharing policy */
+        case FR_NOT_ENOUGH_CORE: return FS_ERROR_OUT_OF_RESOURCES;		/* (17) LFN working buffer could not be allocated or given buffer is insufficient in size */
+        case FR_TOO_MANY_OPEN_FILES: return FS_ERROR_MAX_FILES;	/* (18) Number of open files > FF_FS_LOCK */
+        case FR_INVALID_PARAMETER: return FS_ERROR_INVALID_PARAM;	/* (19) Given parameter is invalid */    
+        default: return -error;
+    }
+}
+
 static BYTE parse_mode_str(char *mode_str){
     BYTE mode = 0;
     while(*mode_str){
@@ -112,7 +140,7 @@ static BYTE parse_mode_str(char *mode_str){
     return mode;
 }
 
-static int fatfs_mount(int drive){
+static FSError fatfs_mount(int drive){
     if(fatfs_mounts[drive].mounted){
         fatfs_mounts[drive].mount_count++;
     }
@@ -125,35 +153,37 @@ static int fatfs_mount(int drive){
     if(!fatfs_mounts[drive].fs){
         fatfs_mounts[drive].fs = ff_allocate_FATFS();
         if(!fatfs_mounts[drive].fs)
-            return -1;
+            return FS_ERROR_OUT_OF_RESOURCES;
     }
 
     FRESULT res = f_mount(fatfs_mounts[drive].fs, path, 0);
     debug_printf("%s: mount returned %x\n", MODULE_NAME, res);
-    if(res != FR_OK){
-        return -1;
+    if(res == FR_OK){
+        fatfs_mounts[drive].mounted = true;
+        fatfs_mounts[drive].mount_count = 1;;
     }
-    fatfs_mounts[drive].mounted = true;
-    fatfs_mounts[drive].mount_count = 1;
-    return res;
+    return fatfs_map_error(res);
 }
 
-static FRESULT fatfs_open_file(FAT_OpenFileRequest *req, int drive){
+static FSError fatfs_open_file(FAT_OpenFileRequest *req, int drive){
     BYTE mode = parse_mode_str(req->mode);
     TCHAR path_buff[sizeof(req->path)+4];
     snprintf(path_buff, sizeof(path_buff), "%d:%s", drive, req->path);
     FIL *fp = ff_allocate_FIL();
+    if(!fp) {
+        return FS_ERROR_OUT_OF_RESOURCES;
+    }
     FRESULT res = f_open(fp, path_buff, mode);
     debug_printf("%s: open_file %p, %s, 0x%x returned 0x%x\n", MODULE_NAME, fp, path_buff, mode, res);
     if(res != FR_OK){
-        free(fp);
+        ff_free_FIL(fp);
         fp = NULL;
     }
     *req->filehandle_out_ptr = fp;
-    return res;
+    return fatfs_map_error(res);
 }
 
-static int fatfs_message_dispatch(FAT_WorkMessage *message){
+static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
 
     // commands not requiring drive
     switch (message->command)
@@ -190,7 +220,7 @@ static int fatfs_message_dispatch(FAT_WorkMessage *message){
             return fatfs_open_file(&message->request.open_file, drive);
     }
 
-    debug_printf("%s: Unknown command %x!!!! HALTING\n", MODULE_NAME, message->command);
+    debug_printf("%s: Unknown command 0x%x!!!! HALTING\n", MODULE_NAME, message->command);
     while(1);
     return -1;
 }
