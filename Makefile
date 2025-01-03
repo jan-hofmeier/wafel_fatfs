@@ -30,7 +30,7 @@ DATA				:=
 #---------------------------------------------------------------------------------
 ARCH			:=	-march=armv5te -mcpu=arm926ej-s -mthumb-interwork -mbig-endian -mfloat-abi=soft -fPIE -fno-jump-tables -export-dynamic -s -isystem $(STROOPWAFEL_ROOT)/wafel_core/include
 
-CFLAGS			:=	-g -std=c11 -Os \
+CFLAGS		:=	-g -std=c23 -O3 \
 					-fomit-frame-pointer -fdata-sections -ffunction-sections \
 					$(ARCH) -nostartfiles
 
