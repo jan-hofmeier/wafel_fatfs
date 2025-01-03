@@ -22,6 +22,11 @@ static struct mounts {
 
 } fatfs_mounts[FF_VOLUMES] = {};
 
+typedef struct PathFIL {
+    FIL fil;
+    char path[512+4];
+} PathFIL;
+
 
 int salfatfs_find_index(uint volume_handle){
     for(int i=0; i<FF_VOLUMES; i++){
@@ -68,20 +73,20 @@ void ff_free_FATFS(FATFS *fs){
     free_local(fs);
 }
 
-FIL* ff_allocate_FIL(void){
-    FIL *fp = malloc_local(sizeof(FIL));
+PathFIL* ff_allocate_FIL(void){
+    PathFIL *fp = malloc_local(sizeof(PathFIL));
     if(!fp)
         return fp;
-    fp->buf = iosAllocAligned(HEAPID_LOCAL, FF_MAX_SS, 0x20);
-    if(!fp->buf){
+    fp->fil.buf = iosAllocAligned(HEAPID_LOCAL, FF_MAX_SS, 0x20);
+    if(!fp->fil.buf){
         free_local(fp);
         return NULL;
     }
     return fp;
 }
 
-void ff_free_FIL(FIL *fp){
-    free_local(fp->buf);
+void ff_free_FIL(PathFIL *fp){
+    free_local(fp->fil.buf);
     free_local(fp);
 }
 
@@ -167,19 +172,37 @@ static FSError fatfs_mount(int drive){
 
 static FSError fatfs_open_file(FAT_OpenFileRequest *req, int drive){
     BYTE mode = parse_mode_str(req->mode);
-    TCHAR path_buff[sizeof(req->path)+4];
-    snprintf(path_buff, sizeof(path_buff), "%d:%s", drive, req->path);
-    FIL *fp = ff_allocate_FIL();
+    PathFIL *fp = ff_allocate_FIL();
     if(!fp) {
         return FS_ERROR_OUT_OF_RESOURCES;
     }
-    FRESULT res = f_open(fp, path_buff, mode);
-    debug_printf("%s: open_file %p, %s, 0x%x returned 0x%x\n", MODULE_NAME, fp, path_buff, mode, res);
+    snprintf(fp->path, sizeof(fp->path), "%d:%s", drive, req->path);
+
+    FRESULT res = f_open(&fp->fil, fp->path, mode);
+    debug_printf("%s: open_file %p, %s, 0x%x returned 0x%x\n", MODULE_NAME, fp, fp->path, mode, res);
     if(res != FR_OK){
         ff_free_FIL(fp);
         fp = NULL;
     }
     *req->filehandle_out_ptr = fp;
+    return fatfs_map_error(res);
+}
+
+static FSError fatfs_stat_file(FAT_StatFileRequest *reg) {
+    PathFIL* fp = *(reg->fp);
+    FILINFO info;
+    debug_printf("%s: StatFile(%s)", MODULE_NAME, fp->path);
+    FRESULT res = f_stat(fp->path, &info);
+    if(res == FR_OK){
+        FSStat *stat = reg->stat;
+        stat->flags = 0x0d000000;
+        stat->mode = (info.fattrib & AM_RDO) ? 0x444:0x666;
+        stat->size = info.fsize;
+        stat->allocSize = info.fsize;
+        // stat->created = 0;
+        // stat->modified = 0;
+    }
+    debug_printf("%s: StatFile(%s) -> size: %d res: %d\n", MODULE_NAME, fp->path, info.fsize, res);
     return fatfs_map_error(res);
 }
 
@@ -218,6 +241,8 @@ static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
             //deattached
         case 0x0a:
             return fatfs_open_file(&message->request.open_file, drive);
+        case 0x10:
+            return fatfs_stat_file(&message->request.stat_file);
     }
 
     debug_printf("%s: Unknown command 0x%x!!!! HALTING\n", MODULE_NAME, message->command);
