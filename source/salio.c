@@ -76,15 +76,16 @@ DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count) {
 }
 
 DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff){
-    debug_printf("%s: disk_ioctl(%i, %i, %p)\n", pdrv, cmd, buff);
+    debug_printf("%s: disk_ioctl(%i, %i, %p)\n", MODULE_NAME, pdrv, cmd, buff);
     FSSALDevice* device = FSSAL_LookupDevice(device_handles[pdrv]);
     if(!device)
         return RES_PARERR;
 
     switch (cmd)
     {
-        case GET_SECTOR_SIZE: 
-            *(LBA_t*)buff = device->block_size;
+        case GET_SECTOR_SIZE:
+            debug_printf("SECTOR SIZE: %i\n", device->block_size);
+            *(WORD*)buff = device->block_size;
             return RES_OK;
         case GET_SECTOR_COUNT:
             LBA_t bc = device->block_count_hi;
