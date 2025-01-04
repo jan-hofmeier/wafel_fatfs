@@ -360,6 +360,10 @@ typedef enum FS_StatFSType : uint32_t {
     FS_STAT_UKN_7 = 7
 } FS_StatFSType;
 
+typedef struct FAT_RemoveRequest {
+    char path[512];
+} FAT_RemoveRequest;
+
 typedef struct FAT_StatFSRequest {
     char path[512];
     FS_StatFSType type;
@@ -379,6 +383,7 @@ union FAT_Request {
     FAT_SetPosFileRequest setpos_file;
     FAT_StatFileRequest stat_file;
     FAT_CloseFileRequest close_file;
+    FAT_RemoveRequest remove;
     FAT_StatFSRequest stat_fs;
 };
 

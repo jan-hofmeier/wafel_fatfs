@@ -356,6 +356,11 @@ static FATError fatfs_close_file(FAT_CloseFileRequest *req){
     return fatfs_map_error(res);
 }
 
+static FATError fatfs_remove(FAT_RemoveRequest *req){
+    FRESULT res = f_unlink(req->path);
+    return fatfs_map_error(res);
+}
+
 static FATError fatfs_stat_fs(FAT_StatFSRequest *req, int drive) {
     debug_printf("%s: StatFS type %d\n", MODULE_NAME, req->type);
     switch (req->type)
@@ -395,6 +400,8 @@ static FATError fatfs_message_dispatch(FAT_WorkMessage *message){
             return fatfs_setpos_file(&message->request.setpos_file);
         case 0x13:
             return fatfs_close_file(&message->request.close_file);
+        case 0x15:
+            return fatfs_remove(&message->request.remove);
         case 0x2a:
             char drive_char;
             message->worker->retval = FSFAT_init_stuff(&drive_char);
