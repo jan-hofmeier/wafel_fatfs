@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 
 static const char* MODULE_NAME = "SALFATFS";
 
@@ -200,6 +201,39 @@ static FSError fatfs_open_dir(FAT_OpenDirRequest *req, int drive){
     return fatfs_map_error(res);
 }
 
+static void convert_filinfo_to_fsstat(FILINFO *info, FSStat *stat, int drive){
+    FSStatFlags flags = 0x0c000000;
+    if(info->fattrib & AM_DIR){
+        flags |= FS_STAT_DIRECTORY;
+    } else { //File
+        flags |= FS_STAT_FILE;
+    }
+    stat->flags = flags;
+    stat->mode = (info->fattrib & AM_RDO) ? 0x444:0x666;
+    stat->size = info->fsize;
+
+    FATFS *fs = fatfs_mounts[drive].fs;
+    uint32_t cs = fs->csize * fs->ssize;
+    uint32_t slack = cs - info->fsize % cs;
+    stat->allocSize = info->fsize + slack;
+}
+
+static FSError fatfs_read_dir(FAT_ReadDirRequest *req, int drive){
+    PathDIR *dp = *req->dp;
+    FILINFO info;
+    FRESULT res = f_readdir(&dp->dir, &info);
+    debug_printf("%s: read_dir %p, %s, returned 0x%x\n", MODULE_NAME, dp, dp->path, res);
+    if(res == FR_OK){
+        if(info.fname[0] == 0){
+            debug_printf("FS_ERROR_END_OF_DIR");
+            return FS_ERROR_END_OF_DIR;
+        }
+        strncpy(req->entry->name, info.fname, sizeof(req->entry->name));
+        convert_filinfo_to_fsstat(&info, &req->entry->info, drive);
+    }
+    return fatfs_map_error(res);
+}
+
 static FSError fatfs_open_file(FAT_OpenFileRequest *req, int drive){
     BYTE mode = parse_mode_str(req->mode);
     PathFIL *fp = ff_allocate_FIL();
@@ -241,17 +275,7 @@ static FSError fatfs_stat_file(FAT_StatFileRequest *req, int drive) {
     debug_printf("%s: StatFile(%s)", MODULE_NAME, fp->path);
     FRESULT res = f_stat(fp->path, &info);
     if(res == FR_OK){
-        FSStat *stat = req->stat;
-        stat->flags = 0x0d000000;
-        stat->mode = (info.fattrib & AM_RDO) ? 0x444:0x666;
-        stat->size = info.fsize;
-
-        FATFS *fs = fatfs_mounts[drive].fs;
-        uint32_t cs = fs->csize * fs->ssize;
-        uint32_t slack = cs - info.fsize % cs;
-        stat->allocSize = info.fsize + slack;
-        // stat->created = 0;
-        // stat->modified = 0;
+        convert_filinfo_to_fsstat(&info, req->stat, drive);
     }
     debug_printf("%s: StatFile(%s) -> size: %d res: %d\n", MODULE_NAME, fp->path, info.fsize, res);
     return fatfs_map_error(res);
@@ -300,6 +324,8 @@ static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
             //deattached
         case 0x06:
             return fatfs_open_dir(&message->request.open_dir, drive);
+        case 0x07:
+            return fatfs_read_dir(&message->request.read_dir, drive);
         case 0x0a:
             return fatfs_open_file(&message->request.open_file, drive);
         case 0x0b:

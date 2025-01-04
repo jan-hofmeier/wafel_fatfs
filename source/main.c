@@ -54,7 +54,7 @@ void fsfat_mount0(FAT_WorkMessage *message){
 
     // debug_printf("Message:");
     // print_hex((u8*)message, 0x24);
-    print_request_hex(&message->request);
+    //print_request_hex(&message->request);
 }
 
 void fsfat_open_file(FAT_WorkMessage *message){
@@ -92,6 +92,8 @@ void fsfat_hook(trampoline_state *regs){
 
     salfatfs_process_message(message);
     regs->lr = 0x1078a664;
+
+    //print_request_hex(&message->request);
     
     // debug_printf("FSFAT Request: %p", request);
     // for(int i=0; i<0x428; i++){
@@ -115,6 +117,11 @@ uint fsfat_device_attach_hook(uint fs_handle, uint existing_volume, FSVolumeArgs
 
 void fsfat_ret_hook(trampoline_state *regs){
     FAT_WorkMessage *message = (FAT_WorkMessage*)regs->r[7];
+    //print_request_hex(&message->request);
+    if(message->command == 0x10){
+        debug_printf("%s: StatFile:", PLUGIN_NAME);
+        print_hex((u8*)message->request.stat_file.stat, 0x68);
+    }
     int ret = regs->r[5];
     debug_printf("%s: ret: %x, callback: %p, worker->ret: %x, worker->set: %x\n", PLUGIN_NAME, ret, message->callback, message->worker->retval, message->worker->set);
 }

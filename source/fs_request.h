@@ -166,7 +166,6 @@ typedef struct WUT_PACKED FSStat
    WUT_UNKNOWN_BYTES(0x30);
 } FSStat;
 
-
 WUT_CHECK_OFFSET(FSStat, 0x00, flags);
 WUT_CHECK_OFFSET(FSStat, 0x04, mode);
 WUT_CHECK_OFFSET(FSStat, 0x08, owner);
@@ -179,6 +178,13 @@ WUT_CHECK_OFFSET(FSStat, 0x24, created);
 WUT_CHECK_OFFSET(FSStat, 0x2C, modified);
 WUT_CHECK_SIZE(FSStat, 0x64);
 
+typedef struct FSDirectoryEntry
+{
+   FSStat info;
+   char name[256];
+} FSDirectoryEntry;
+WUT_CHECK_OFFSET(FSDirectoryEntry, 0x64, name);
+WUT_CHECK_SIZE(FSDirectoryEntry, 0x164);
 
 /* WUT Stuff  end*/
 
@@ -210,8 +216,6 @@ typedef struct FAT_UnmountRequest FAT_UnmountRequest, *PFAT_UnmountRequest;
 
 typedef struct FAT_MkdirRequest FAT_MkdirRequest, *PFAT_MkdirRequest;
 
-typedef struct FAT_ReadDirRequest FAT_ReadDirRequest, *PFAT_ReadDirRequest;
-
 typedef struct FAT_BaseRequest FAT_BaseRequest, *PFAT_BaseRequest;
 
 typedef uint FSSALHandle, *PFSSALHandle;
@@ -236,10 +240,10 @@ struct FAT_UnmountRequest {
     int handle;
 };
 
-struct FAT_ReadDirRequest {
-    FAT_DirHandle handle;
-    byte * field1_0x4;
-};
+typedef struct FAT_ReadDirRequest {
+    void **dp;
+    FSDirectoryEntry *entry;
+} FAT_ReadDirRequest;
 
 struct FAT_BaseRequest {
     char unknown[1028];
@@ -270,7 +274,7 @@ struct FAT_OpenFileRequest{
 
 typedef struct FAT_StatFileRequest {
     void **fp;
-    void *stat;
+    FSStat *stat;
 } FAT_StatFileRequest;
 
 typedef enum FSReadRequestFlag : uint32_t {
@@ -299,9 +303,9 @@ union FAT_Request {
     struct FAT_FormatDeviceRequest format_device;
     struct FAT_UnmountRequest unmount;
     struct FAT_MkdirRequest mkdir;
-    struct FAT_ReadDirRequest readdir;
     struct FAT_BaseRequest _b; /* fake to pad struct */
     FAT_OpenDirRequest open_dir;
+    FAT_ReadDirRequest read_dir;
     FAT_OpenFileRequest open_file;
     FAT_ReadFileRequest read_file;
     FAT_StatFileRequest stat_file;
