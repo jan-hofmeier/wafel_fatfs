@@ -299,6 +299,10 @@ typedef struct FAT_OpenDirRequest {
     void **dirhandle_out_ptr; /* pointer needs prefill? */
 } FAT_OpenDirRequest;
 
+typedef struct FAT_CloseDirRequst {
+    void **dp;
+} FAT_CloseDirRequst;
+
 union FAT_Request {
     struct FAT_FormatDeviceRequest format_device;
     struct FAT_UnmountRequest unmount;
@@ -306,6 +310,7 @@ union FAT_Request {
     struct FAT_BaseRequest _b; /* fake to pad struct */
     FAT_OpenDirRequest open_dir;
     FAT_ReadDirRequest read_dir;
+    FAT_CloseDirRequst close_dir;
     FAT_OpenFileRequest open_file;
     FAT_ReadFileRequest read_file;
     FAT_StatFileRequest stat_file;

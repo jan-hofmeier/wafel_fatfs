@@ -234,6 +234,13 @@ static FSError fatfs_read_dir(FAT_ReadDirRequest *req, int drive){
     return fatfs_map_error(res);
 }
 
+static FSError fatfs_close_dir(FAT_CloseDirRequst *req){
+    PathDIR *dp = *req->dp;
+    FRESULT res = f_closedir(&dp->dir);
+    ff_free_DIR(dp);
+    return fatfs_map_error(res);
+}
+
 static FSError fatfs_open_file(FAT_OpenFileRequest *req, int drive){
     BYTE mode = parse_mode_str(req->mode);
     PathFIL *fp = ff_allocate_FIL();
@@ -296,6 +303,12 @@ static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
     {
         // case 0xb:
         //     break;
+        case 0x09:
+            return fatfs_close_dir(&message->request.close_dir);
+        case 0x0b:
+            return fatfs_read_file(&message->request.read_file);
+        case 0x13:
+            return fatfs_close_file(&message->request.close_file);
         case 0x2a:
             char drive_char;
             message->worker->retval = FSFAT_init_stuff(&drive_char);
@@ -328,12 +341,8 @@ static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
             return fatfs_read_dir(&message->request.read_dir, drive);
         case 0x0a:
             return fatfs_open_file(&message->request.open_file, drive);
-        case 0x0b:
-            return fatfs_read_file(&message->request.read_file);
         case 0x10:
             return fatfs_stat_file(&message->request.stat_file, drive);
-        case 0x13:
-            return fatfs_close_file(&message->request.close_file);
     }
 
     debug_printf("%s: Unknown command 0x%x!!!! HALTING\n", MODULE_NAME, message->command);
