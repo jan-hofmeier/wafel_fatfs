@@ -273,6 +273,19 @@ typedef struct FAT_StatFileRequest {
     void *stat;
 } FAT_StatFileRequest;
 
+typedef enum FSReadRequestFlag : uint32_t {
+    READ_REQUEST_WITH_POS = 0x1,
+} FSReadRequestFlag;
+
+typedef struct FAT_ReadFileRequest {
+    void * buffer;
+    size_t size;
+    size_t count;
+    uint pos;
+    void **file;
+    FSReadRequestFlag flags; /* 0x1 means WithPos */
+} FAT_ReadFileRequest;
+
 union FAT_Request {
     struct FAT_FormatDeviceRequest format_device;
     struct FAT_UnmountRequest unmount;
@@ -280,6 +293,7 @@ union FAT_Request {
     struct FAT_ReadDirRequest readdir;
     struct FAT_BaseRequest _b; /* fake to pad struct */
     FAT_OpenFileRequest open_file;
+    FAT_ReadFileRequest read_file;
     FAT_StatFileRequest stat_file;
 };
 

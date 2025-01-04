@@ -188,13 +188,30 @@ static FSError fatfs_open_file(FAT_OpenFileRequest *req, int drive){
     return fatfs_map_error(res);
 }
 
-static FSError fatfs_stat_file(FAT_StatFileRequest *reg, int drive) {
-    PathFIL* fp = *(reg->fp);
+static FSError fatfs_read_file(FAT_ReadFileRequest *req){
+    PathFIL *fp = *(req->file);
+    debug_printf("%s: ReadFile(%p, %d, %d, %u, %p (%s), 0x%x)", MODULE_NAME, req->buffer, req->size, req->count, req->pos,fp, fp->path, req->flags);
+    FRESULT res;
+    if(req->flags & READ_REQUEST_WITH_POS){
+        res = f_lseek(&fp->fil, req->pos);
+        if(res != FR_OK)
+            return fatfs_map_error(res);
+    }
+    UINT br;
+    res = f_read(&fp->fil, req->buffer, req->size * req->count, &br);
+    if(res != FR_OK)
+        return fatfs_map_error(res);
+    debug_printf("read: %d bytes\n", br);
+    return br / req->size;
+}
+
+static FSError fatfs_stat_file(FAT_StatFileRequest *req, int drive) {
+    PathFIL* fp = *(req->fp);
     FILINFO info;
     debug_printf("%s: StatFile(%s)", MODULE_NAME, fp->path);
     FRESULT res = f_stat(fp->path, &info);
     if(res == FR_OK){
-        FSStat *stat = reg->stat;
+        FSStat *stat = req->stat;
         stat->flags = 0x0d000000;
         stat->mode = (info.fattrib & AM_RDO) ? 0x444:0x666;
         stat->size = info.fsize;
@@ -245,6 +262,8 @@ static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
             //deattached
         case 0x0a:
             return fatfs_open_file(&message->request.open_file, drive);
+        case 0x0b:
+            return fatfs_read_file(&message->request.read_file);
         case 0x10:
             return fatfs_stat_file(&message->request.stat_file, drive);
     }
