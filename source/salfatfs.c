@@ -331,6 +331,28 @@ static FSError fatfs_setpos_file(FAT_SetPosFileRequest *req){
     return fatfs_seek(&fp->fil, req->pos);
 }
 
+static FSError fatfs_stat_fs(FAT_StatFSRequest *req, int drive) {
+    debug_printf("%s: StatFS type %d\n", MODULE_NAME, req->type);
+    switch (req->type)
+    {
+        case FS_STAT_FREE_SPACE:
+            DWORD nclst;
+            FATFS *fs;
+            TCHAR path[5];
+            snprintf(path, sizeof(path), "%d:", drive);
+            FRESULT res = f_getfree(path, &nclst, &fs);
+            if(res != FR_OK)
+                return fatfs_map_error(res);
+            uint64_t free_sector = nclst * fs->csize;
+            *(uint64_t*)req->out_ptr = free_sector * fs->ssize;
+            return FS_ERROR_OK;
+
+        default:
+            debug_printf("%s: Unimplemented FS Stat type: %d\n", MODULE_NAME, req->type);
+            return FS_ERROR_UNSUPPORTED_COMMAND;
+    }
+}
+
 static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
 
     // commands not requiring drive
@@ -380,6 +402,8 @@ static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
             return fatfs_open_file(&message->request.open_file, drive);
         case 0x10:
             return fatfs_stat_file(&message->request.stat_file, drive);
+        case 0x19:
+            return fatfs_stat_fs(&message->request.stat_fs, drive);
     }
 
     debug_printf("%s: Unknown command 0x%x!!!! HALTING\n", MODULE_NAME, message->command);

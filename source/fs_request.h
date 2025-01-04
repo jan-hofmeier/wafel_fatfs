@@ -319,8 +319,8 @@ typedef enum FS_StatFSType : uint32_t {
 } FS_StatFSType;
 
 typedef struct FAT_StatFSRequest {
-    char path?[512];
-    enum FS_StatFSType type;
+    char path[512];
+    FS_StatFSType type;
     void * out_ptr;
 } FAT_StatFSRequest;
 
