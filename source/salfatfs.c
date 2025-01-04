@@ -306,6 +306,31 @@ static FSError fatfs_read_file(FAT_ReadFileRequest *req){
     return br / req->size;
 }
 
+static FSError fatfs_write_file(FAT_ReadFileRequest *req){
+    PathFIL *fp = *req->file;
+    FRESULT res;
+    // TODO optimize: block seek for wo append, then we don't need to seek here for wo append
+    if(fp->fil.flag & FA_OPEN_APPEND) {
+        FILINFO *info;
+        res = f_lseek(&fp->fil, (FSIZE_t)0xFFFFFFFFFFFFFFFF);
+        if(res != FR_OK)
+            return fatfs_map_error(res);
+    }
+
+    if(req->flags & READ_REQUEST_WITH_POS){
+        FSError error = fatfs_seek(&fp->fil, req->pos);
+        if(error != FS_ERROR_OK)
+            return error;
+    }
+
+    UINT bw;
+    res = f_write(&fp->fil, req->buffer, req->size * req->count, &bw);
+    if(res != FR_OK)
+        return fatfs_map_error(res);
+
+    return bw / req->size;
+}
+
 static FSError fatfs_stat_file(FAT_StatFileRequest *req, int drive) {
     PathFIL* fp = *req->fp;
     FILINFO info;
@@ -364,6 +389,8 @@ static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
             return fatfs_close_dir(&message->request.close_dir);
         case 0x0b:
             return fatfs_read_file(&message->request.read_file);
+        case 0x0c:
+            return fatfs_write_file(&message->request.read_file);
         case 0x0e:
             return fatfs_setpos_file(&message->request.setpos_file);
         case 0x13:
