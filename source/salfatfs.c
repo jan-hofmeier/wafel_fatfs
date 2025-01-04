@@ -248,7 +248,7 @@ static FSError fatfs_stat_file(FAT_StatFileRequest *req, int drive) {
 
         FATFS *fs = fatfs_mounts[drive].fs;
         uint32_t cs = fs->csize * fs->ssize;
-        uint32_t slack = info.fsize % cs;
+        uint32_t slack = cs - info.fsize % cs;
         stat->allocSize = info.fsize + slack;
         // stat->created = 0;
         // stat->modified = 0;
