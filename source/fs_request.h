@@ -286,6 +286,10 @@ typedef struct FAT_ReadFileRequest {
     FSReadRequestFlag flags; /* 0x1 means WithPos */
 } FAT_ReadFileRequest;
 
+typedef struct FAT_CloseFileRequest {
+    void **file;
+} FAT_CloseFileRequest;
+
 union FAT_Request {
     struct FAT_FormatDeviceRequest format_device;
     struct FAT_UnmountRequest unmount;
@@ -295,6 +299,7 @@ union FAT_Request {
     FAT_OpenFileRequest open_file;
     FAT_ReadFileRequest read_file;
     FAT_StatFileRequest stat_file;
+    FAT_CloseFileRequest close_file;
 };
 
 
