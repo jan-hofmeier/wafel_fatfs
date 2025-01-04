@@ -27,6 +27,11 @@ typedef struct PathFIL {
     char path[512+4];
 } PathFIL;
 
+typedef struct PathDIR {
+    DIR dir;
+    char path[512+4];
+} PathDIR;
+
 
 int salfatfs_find_index(uint volume_handle){
     for(int i=0; i<FF_VOLUMES; i++){
@@ -88,6 +93,14 @@ PathFIL* ff_allocate_FIL(void){
 void ff_free_FIL(PathFIL *fp){
     free_local(fp->fil.buf);
     free_local(fp);
+}
+
+PathDIR* ff_allocate_DIR(void){
+    return malloc_local(sizeof(PathDIR));
+}
+
+void ff_free_DIR(PathDIR *dp){
+    free_local(dp);
 }
 
 static FSError fatfs_map_error(FRESULT error){
@@ -167,6 +180,23 @@ static FSError fatfs_mount(int drive){
         fatfs_mounts[drive].mounted = true;
         fatfs_mounts[drive].mount_count = 1;;
     }
+    return fatfs_map_error(res);
+}
+
+static FSError fatfs_open_dir(FAT_OpenDirRequest *req, int drive){
+    PathDIR *dp = ff_allocate_DIR();
+    if(!dp) {
+        return FS_ERROR_OUT_OF_RESOURCES;
+    }
+    snprintf(dp->path, sizeof(dp->path), "%d:%s", drive, req->path);
+
+    FRESULT res = f_opendir(&dp->dir, dp->path);
+    debug_printf("%s: open_dir %p, %s, returned 0x%x\n", MODULE_NAME, dp, dp->path, res);
+    if(res != FR_OK){
+        ff_free_DIR(dp);
+        dp = NULL;
+    }
+    *req->dirhandle_out_ptr = dp;
     return fatfs_map_error(res);
 }
 
@@ -268,6 +298,8 @@ static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
             return fatfs_mount(drive);
         //case 0x03:
             //deattached
+        case 0x06:
+            return fatfs_open_dir(&message->request.open_dir, drive);
         case 0x0a:
             return fatfs_open_file(&message->request.open_file, drive);
         case 0x0b:
