@@ -343,17 +343,17 @@ static FATError fatfs_stat_file(FAT_StatFileRequest *req, int drive) {
     return fatfs_map_error(res);
 }
 
+static FATError fatfs_setpos_file(FAT_SetPosFileRequest *req){
+    PathFIL *fp = *req->file;
+    return fatfs_seek(&fp->fil, req->pos);
+}
+
 static FATError fatfs_close_file(FAT_CloseFileRequest *req){
     PathFIL *fp = *req->file;
     debug_printf("%s: CloseFile(%s)\n", MODULE_NAME, fp->path);
     FATError res = f_close(&fp->fil);
     ff_free_FIL(fp);
     return fatfs_map_error(res);
-}
-
-static FATError fatfs_setpos_file(FAT_SetPosFileRequest *req){
-    PathFIL *fp = *req->file;
-    return fatfs_seek(&fp->fil, req->pos);
 }
 
 static FATError fatfs_stat_fs(FAT_StatFSRequest *req, int drive) {
