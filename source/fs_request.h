@@ -344,3 +344,46 @@ typedef struct FSVolumeArgs {
     char field29_0xdc[128];
     int (* cb)(struct FAT_WorkMessage *);
 } FSVolumeArgs;
+
+typedef struct FSLinkedQueueEntry {
+    struct FSLinkedQueueEntry * next;
+} FSLinkedQueueEntry;
+
+typedef struct FSSALDevice {
+    FSLinkedQueueEntry link;
+    FSSALHandle handle;
+    struct FSSALFilesystem * filesystem;
+    uint server_handle;
+    uint device_type;
+    uint field5_0x14;
+    uint allowed_ops;
+    uint media_state;
+    uint max_lba_size_hi;
+    uint max_lba_size;
+    uint field10_0x28;
+    uint field11_0x2c;
+    uint block_count;
+    uint block_count_hi;
+    uint block_size;
+    uint field15_0x3c;
+    uint alignment_smth;
+    uint field17_0x44;
+    uint field18_0x48;
+    uint field19_0x4c;
+    uint field20_0x50;
+    char field21_0x54[128];
+    char field22_0xd4[128];
+    char field23_0x154[128];
+    uint32_t (* op_read)(void *, uint32_t, uint32_t, uint32_t, uint32_t, void *, uint32_t, void *);
+    uint32_t (* op_read_2)(void *, uint32_t, uint32_t, uint32_t, uint32_t, void *, uint32_t, void *); /* Created by retype action */
+    uint op_write;
+    uint op_write_2;
+    uint field28_0x1e4;
+    uint field29_0x1e8;
+    int (* op_sync)(int, uint32_t, uint32_t, uint32_t, void *, void *);
+    uint field31_0x1f0;
+    uint field32_0x1f4;
+    uint field33_0x1f8;
+    uint field34_0x1fc;
+    uint field35_0x200;
+} FSSALDevice;

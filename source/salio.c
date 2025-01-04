@@ -18,6 +18,8 @@ uint32_t (*FSSAL_RawRead)(FSSALHandle device,uint32_t lba_hi,uint lba, uint32_t 
 uint32_t (*FSSAL_RawWrite)(FSSALHandle device,uint32_t lba_hi,uint lba, uint32_t blkCount,void *buf,
                       void (*cb)(int, void*),void *cb_ctx) = (void*)0x0107328a0;
 
+FSSALDevice* (*FSSAL_LookupDevice)(FSSALHandle device) = (void*)0x10733990;
+
 
 static uint32_t device_handles[FF_MAX_SS];
 
@@ -75,9 +77,25 @@ DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count) {
 
 DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff){
     debug_printf("%s: disk_ioctl(%i, %i, %p)\n", pdrv, cmd, buff);
-    debug_printf("UNKOWN IOCTL %i: HALTING\n", cmd);
-    while(1);
-    return RES_OK;
+    FSSALDevice* device = FSSAL_LookupDevice(device_handles[pdrv]);
+    if(!device)
+        return RES_PARERR;
+
+    switch (cmd)
+    {
+        case GET_SECTOR_SIZE: 
+            *(LBA_t*)buff = device->block_size;
+            return RES_OK;
+        case GET_SECTOR_COUNT:
+            LBA_t bc = device->block_count_hi;
+            bc <<= 32;
+            bc |= device->block_count;
+            *(LBA_t*)buff = bc;
+            return RES_OK; 
+    
+    }
+    debug_printf("UNKOWN IOCTL %i\n", cmd);
+    return RES_PARERR;
 }
 
 DWORD get_fattime (void) {
