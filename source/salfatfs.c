@@ -274,17 +274,32 @@ static FSError fatfs_open_file(FAT_OpenFileRequest *req, int drive){
     return fatfs_map_error(res);
 }
 
+static FSError fatfs_seek(FIL* fp, uint pos){
+    FSIZE_t old_pos = f_tell(fp);
+    FRESULT res = f_lseek(fp, pos);
+    if(res != FR_OK)
+        return fatfs_map_error(res);
+    FSIZE_t curr_pos = f_tell(fp);
+    if(curr_pos != pos){
+        res = f_lseek(fp, old_pos);
+        if(res != FR_OK)
+            return fatfs_map_error(res);
+        return FS_ERROR_OUT_OF_RANGE;
+    }
+    return FS_ERROR_OK;
+}
+
 static FSError fatfs_read_file(FAT_ReadFileRequest *req){
     PathFIL *fp = *(req->file);
     debug_printf("%s: ReadFile(%p, %d, %d, %u, %p (%s), 0x%x)", MODULE_NAME, req->buffer, req->size, req->count, req->pos,fp, fp->path, req->flags);
-    FRESULT res;
+
     if(req->flags & READ_REQUEST_WITH_POS){
-        res = f_lseek(&fp->fil, req->pos);
-        if(res != FR_OK)
-            return fatfs_map_error(res);
+        FSError error = fatfs_seek(&fp->fil, req->pos);
+        if(error != FS_ERROR_OK)
+            return error;
     }
     UINT br;
-    res = f_read(&fp->fil, req->buffer, req->size * req->count, &br);
+    FRESULT res = f_read(&fp->fil, req->buffer, req->size * req->count, &br);
     if(res != FR_OK)
         return fatfs_map_error(res);
     debug_printf("read: %d bytes\n", br);
@@ -311,6 +326,11 @@ static FSError fatfs_close_file(FAT_CloseFileRequest *req){
     return fatfs_map_error(res);
 }
 
+static FSError fatfs_setpos_file(FAT_SetPosFileRequest *req){
+    PathFIL *fp = *req->file;
+    return fatfs_seek(&fp->fil, req->pos);
+}
+
 static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
 
     // commands not requiring drive
@@ -322,6 +342,8 @@ static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
             return fatfs_close_dir(&message->request.close_dir);
         case 0x0b:
             return fatfs_read_file(&message->request.read_file);
+        case 0x0e:
+            return fatfs_setpos_file(&message->request.setpos_file);
         case 0x13:
             return fatfs_close_file(&message->request.close_file);
         case 0x2a:

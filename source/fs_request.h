@@ -290,6 +290,11 @@ typedef struct FAT_ReadFileRequest {
     FSReadRequestFlag flags; /* 0x1 means WithPos */
 } FAT_ReadFileRequest;
 
+typedef struct FAT_SetPosFileRequest {
+    void **file;
+    uint32_t pos;
+} FAT_SetPosFileRequest;
+
 typedef struct FAT_CloseFileRequest {
     void **file;
 } FAT_CloseFileRequest;
@@ -303,6 +308,22 @@ typedef struct FAT_CloseDirRequst {
     void **dp;
 } FAT_CloseDirRequst;
 
+typedef enum FS_StatFSType : uint32_t {
+    FS_STAT_FREE_SPACE = 0,
+    FS_STAT_DIR_SIZE = 1,
+    FS_STAT_ENTRY_NUM = 2,
+    FS_STAT_FSINFO = 3,
+    FS_STAT_UKN_4 = 4,
+    FS_STAT_INIT_STAT = 5,
+    FS_STAT_UKN_7 = 7
+} FS_StatFSType;
+
+typedef struct FAT_StatFSRequest {
+    char path?[512];
+    enum FS_StatFSType type;
+    void * out_ptr;
+} FAT_StatFSRequest;
+
 union FAT_Request {
     struct FAT_FormatDeviceRequest format_device;
     FAT_UnmountRequest unmount;
@@ -313,8 +334,10 @@ union FAT_Request {
     FAT_CloseDirRequst close_dir;
     FAT_OpenFileRequest open_file;
     FAT_ReadFileRequest read_file;
+    FAT_SetPosFileRequest setpos_file;
     FAT_StatFileRequest stat_file;
     FAT_CloseFileRequest close_file;
+    FAT_StatFSRequest stat_fs;
 };
 
 
