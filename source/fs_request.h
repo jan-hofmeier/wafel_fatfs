@@ -236,6 +236,48 @@ typedef enum SALDeviceType { /* from dimok, unknown accuracy https://github.com/
     SAL_DEVICE_MLCORIG=18
 } __attribute__ ((__packed__)) SALDeviceType;
 
+typedef enum FATError
+{
+   FAT_ERROR_OK                      = 0,
+   FAT_ERROR_NOT_INIT                = -0x1e0001,
+   FAT_ERROR_BUSY                    = -0x1e0002,
+   FAT_ERROR_CANCELLED               = -0x1e0003,
+   FAT_ERROR_END_OF_DIR              = -0x1e0004,
+   FAT_ERROR_END_OF_FILE             = -0x1e0005,
+   FAT_ERROR_MAX_MOUNT_POINTS        = -0x1e0010,
+   FAT_ERROR_MAX_VOLUMES             = -0x1e0011,
+   FAT_ERROR_MAX_CLIENTS             = -0x1e0012,
+   FAT_ERROR_MAX_FILES               = -0x1e0013,
+   FAT_ERROR_MAX_DIRS                = -0x1e0014,
+   FAT_ERROR_ALREADY_OPEN            = -0x1e0015,
+   FAT_ERROR_ALREADY_EXISTS          = -0x1e0016,
+   FAT_ERROR_NOT_FOUND               = -0x1e0017,
+   FAT_ERROR_NOT_EMPTY               = -0x1e0018,
+   FAT_ERROR_ACCESS_ERROR            = -0x1e0019,
+   FAT_ERROR_PERMISSION_ERROR        = -0x1e001A,
+   FAT_ERROR_DATA_CORRUPTED          = -0x1e001B,
+   FAT_ERROR_STORAGE_FULL            = -0x1e001C,
+   FAT_ERROR_JOURNAL_FULL            = -0x1e001D,
+   FAT_ERROR_UNAVAILABLE_COMMAND     = -0x1e001F,
+   FAT_ERROR_UNSUPPORTED_COMMAND     = -0x1e0020,
+   FAT_ERROR_INVALID_PARAM           = -0x1e0021,
+   FAT_ERROR_INVALID_PATH            = -0x1e0022,
+   FAT_ERROR_INVALID_BUFFER          = -0x1e0023,
+   FAT_ERROR_INVALID_ALIGNMENT       = -0x1e0024,
+   FAT_ERROR_INVALID_CLIENTHANDLE    = -0x1e0025,
+   FAT_ERROR_INVALID_FILEHANDLE      = -0x1e0026,
+   FAT_ERROR_INVALID_DIRHANDLE       = -0x1e0027,
+   FAT_ERROR_NOT_FILE                = -0x1e0028,
+   FAT_ERROR_NOT_DIR                 = -0x1e0029,
+   FAT_ERROR_FILE_TOO_BIG            = -0x1e002A,
+   FAT_ERROR_OUT_OF_RANGE            = -0x1e002B,
+   FAT_ERROR_OUT_OF_RESOURCES        = -0x1e002C,
+   FAT_ERROR_MEDIA_NOT_READY         = -0x1e0040,
+   FAT_ERROR_MEDIA_ERROR             = -0x1e0041,
+   FAT_ERROR_WRITE_PROTECTED         = -0x1e0042,
+   FAT_ERROR_INVALID_MEDIA           = -0x1e0043,
+} FATError;
+
 typedef struct FAT_UnmountRequest {
     int handle;
 } FAT_UnmountRequest;
@@ -363,7 +405,7 @@ struct FAT_WorkMessage {
     uint volume_handle;
     fs_response * worker;
     uint command;
-    void (*callback)(FSError, void*);
+    void (*callback)(FATError, void*);
     void* calback_data;
     union FAT_Request request;
 };

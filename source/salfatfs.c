@@ -104,29 +104,29 @@ void ff_free_DIR(PathDIR *dp){
     free_local(dp);
 }
 
-static FSError fatfs_map_error(FRESULT error){
+static FATError fatfs_map_error(FRESULT error){
     switch (error)
     {
-        case FR_OK: return FS_ERROR_OK;
-        case FR_DISK_ERR: return FS_ERROR_MEDIA_ERROR;			/* (1) A hard error occurred in the low level disk I/O layer */
-        case FR_INT_ERR: return FS_ERROR_OUT_OF_RESOURCES;				/* (2) Assertion failed */
-        case FR_NOT_READY: return FS_ERROR_MEDIA_NOT_READY;			/* (3) The physical drive does not work */
-        case FR_NO_FILE: return FS_ERROR_NOT_FOUND;				/* (4) Could not find the file */
-        case FR_NO_PATH: return FS_ERROR_NOT_FOUND;				/* (5) Could not find the path */
-        case FR_INVALID_NAME: return FS_ERROR_INVALID_PATH;		/* (6) The path name format is invalid */
-        case FR_DENIED: return FS_ERROR_PERMISSION_ERROR;				/* (7) Access denied due to a prohibited access or directory full */
-        case FR_EXIST: return FS_ERROR_PERMISSION_ERROR;				/* (8) Access denied due to a prohibited access */
-        case FR_INVALID_OBJECT: return FS_ERROR_INVALID_FILEHANDLE;		/* (9) The file/directory object is invalid */
-        case FR_WRITE_PROTECTED: return FS_ERROR_WRITE_PROTECTED;		/* (10) The physical drive is write protected */
-        case FR_INVALID_DRIVE: return FS_ERROR_INVALID_MEDIA;		/* (11) The logical drive number is invalid */
-        case FR_NOT_ENABLED: return FS_ERROR_NOT_INIT;			/* (12) The volume has no work area */
-        case FR_NO_FILESYSTEM: return FS_ERROR_MEDIA_NOT_READY;		/* (13) Could not find a valid FAT volume */
-        case FR_MKFS_ABORTED: return FS_ERROR_CANCELLED;		/* (14) The f_mkfs function aborted due to some problem */
-        case FR_TIMEOUT: return FS_ERROR_BUSY;				/* (15) Could not take control of the volume within defined period */
-        case FR_LOCKED: return FS_ERROR_BUSY;				/* (16) The operation is rejected according to the file sharing policy */
-        case FR_NOT_ENOUGH_CORE: return FS_ERROR_OUT_OF_RESOURCES;		/* (17) LFN working buffer could not be allocated or given buffer is insufficient in size */
-        case FR_TOO_MANY_OPEN_FILES: return FS_ERROR_MAX_FILES;	/* (18) Number of open files > FF_FS_LOCK */
-        case FR_INVALID_PARAMETER: return FS_ERROR_INVALID_PARAM;	/* (19) Given parameter is invalid */    
+        case FR_OK: return FAT_ERROR_OK;
+        case FR_DISK_ERR: return FAT_ERROR_MEDIA_ERROR;			/* (1) A hard error occurred in the low level disk I/O layer */
+        case FR_INT_ERR: return FAT_ERROR_OUT_OF_RESOURCES;				/* (2) Assertion failed */
+        case FR_NOT_READY: return FAT_ERROR_MEDIA_NOT_READY;			/* (3) The physical drive does not work */
+        case FR_NO_FILE: return FAT_ERROR_NOT_FOUND;				/* (4) Could not find the file */
+        case FR_NO_PATH: return FAT_ERROR_NOT_FOUND;				/* (5) Could not find the path */
+        case FR_INVALID_NAME: return FAT_ERROR_INVALID_PATH;		/* (6) The path name format is invalid */
+        case FR_DENIED: return FAT_ERROR_PERMISSION_ERROR;				/* (7) Access denied due to a prohibited access or directory full */
+        case FR_EXIST: return FAT_ERROR_PERMISSION_ERROR;				/* (8) Access denied due to a prohibited access */
+        case FR_INVALID_OBJECT: return FAT_ERROR_INVALID_FILEHANDLE;		/* (9) The file/directory object is invalid */
+        case FR_WRITE_PROTECTED: return FAT_ERROR_WRITE_PROTECTED;		/* (10) The physical drive is write protected */
+        case FR_INVALID_DRIVE: return FAT_ERROR_INVALID_MEDIA;		/* (11) The logical drive number is invalid */
+        case FR_NOT_ENABLED: return FAT_ERROR_NOT_INIT;			/* (12) The volume has no work area */
+        case FR_NO_FILESYSTEM: return FAT_ERROR_MEDIA_NOT_READY;		/* (13) Could not find a valid FAT volume */
+        case FR_MKFS_ABORTED: return FAT_ERROR_CANCELLED;		/* (14) The f_mkfs function aborted due to some problem */
+        case FR_TIMEOUT: return FAT_ERROR_BUSY;				/* (15) Could not take control of the volume within defined period */
+        case FR_LOCKED: return FAT_ERROR_BUSY;				/* (16) The operation is rejected according to the file sharing policy */
+        case FR_NOT_ENOUGH_CORE: return FAT_ERROR_OUT_OF_RESOURCES;		/* (17) LFN working buffer could not be allocated or given buffer is insufficient in size */
+        case FR_TOO_MANY_OPEN_FILES: return FAT_ERROR_MAX_FILES;	/* (18) Number of open files > FF_FS_LOCK */
+        case FR_INVALID_PARAMETER: return FAT_ERROR_INVALID_PARAM;	/* (19) Given parameter is invalid */    
         default: return -error;
     }
 }
@@ -159,7 +159,7 @@ static BYTE parse_mode_str(char *mode_str){
     return mode;
 }
 
-static FSError fatfs_mount(int drive){
+static FATError fatfs_mount(int drive){
     if(fatfs_mounts[drive].mounted){
         fatfs_mounts[drive].mount_count++;
     }
@@ -172,7 +172,7 @@ static FSError fatfs_mount(int drive){
     if(!fatfs_mounts[drive].fs){
         fatfs_mounts[drive].fs = ff_allocate_FATFS();
         if(!fatfs_mounts[drive].fs)
-            return FS_ERROR_OUT_OF_RESOURCES;
+            return FAT_ERROR_OUT_OF_RESOURCES;
     }
 
     FRESULT res = f_mount(fatfs_mounts[drive].fs, path, 0);
@@ -184,7 +184,7 @@ static FSError fatfs_mount(int drive){
     return fatfs_map_error(res);
 }
 
-static FSError fatfs_unmount(FAT_UnmountRequest *req, int drive) {
+static FATError fatfs_unmount(FAT_UnmountRequest *req, int drive) {
     debug_printf("%s: Unmount drive %d, handle 0x%X\n", MODULE_NAME, drive, req->handle);
     if(fatfs_mounts[drive].mount_count > 0) {
         fatfs_mounts[drive].mount_count--;
@@ -196,13 +196,13 @@ static FSError fatfs_unmount(FAT_UnmountRequest *req, int drive) {
         fatfs_mounts[drive].mounted = false;
         return fatfs_map_error(res);
     }
-    return FS_ERROR_OK;
+    return FAT_ERROR_OK;
 }
 
-static FSError fatfs_open_dir(FAT_OpenDirRequest *req, int drive){
+static FATError fatfs_open_dir(FAT_OpenDirRequest *req, int drive){
     PathDIR *dp = ff_allocate_DIR();
     if(!dp) {
-        return FS_ERROR_OUT_OF_RESOURCES;
+        return FAT_ERROR_OUT_OF_RESOURCES;
     }
     snprintf(dp->path, sizeof(dp->path), "%d:%s", drive, req->path);
 
@@ -233,15 +233,15 @@ static void convert_filinfo_to_fsstat(FILINFO *info, FSStat *stat, int drive){
     stat->allocSize = info->fsize + slack;
 }
 
-static FSError fatfs_read_dir(FAT_ReadDirRequest *req, int drive){
+static FATError fatfs_read_dir(FAT_ReadDirRequest *req, int drive){
     PathDIR *dp = *req->dp;
     FILINFO info;
     FRESULT res = f_readdir(&dp->dir, &info);
     debug_printf("%s: read_dir %p, %s, returned 0x%x\n", MODULE_NAME, dp, dp->path, res);
     if(res == FR_OK){
         if(info.fname[0] == 0){
-            debug_printf("FS_ERROR_END_OF_DIR");
-            return FS_ERROR_END_OF_DIR;
+            debug_printf("FAT_ERROR_END_OF_DIR");
+            return FAT_ERROR_END_OF_DIR;
         }
         strncpy(req->entry->name, info.fname, sizeof(req->entry->name));
         convert_filinfo_to_fsstat(&info, &req->entry->info, drive);
@@ -249,18 +249,18 @@ static FSError fatfs_read_dir(FAT_ReadDirRequest *req, int drive){
     return fatfs_map_error(res);
 }
 
-static FSError fatfs_close_dir(FAT_CloseDirRequst *req){
+static FATError fatfs_close_dir(FAT_CloseDirRequst *req){
     PathDIR *dp = *req->dp;
     FRESULT res = f_closedir(&dp->dir);
     ff_free_DIR(dp);
     return fatfs_map_error(res);
 }
 
-static FSError fatfs_open_file(FAT_OpenFileRequest *req, int drive){
+static FATError fatfs_open_file(FAT_OpenFileRequest *req, int drive){
     BYTE mode = parse_mode_str(req->mode);
     PathFIL *fp = ff_allocate_FIL();
     if(!fp) {
-        return FS_ERROR_OUT_OF_RESOURCES;
+        return FAT_ERROR_OUT_OF_RESOURCES;
     }
     snprintf(fp->path, sizeof(fp->path), "%d:%s", drive, req->path);
 
@@ -274,7 +274,7 @@ static FSError fatfs_open_file(FAT_OpenFileRequest *req, int drive){
     return fatfs_map_error(res);
 }
 
-static FSError fatfs_seek(FIL* fp, uint pos){
+static FATError fatfs_seek(FIL* fp, uint pos){
     FSIZE_t old_pos = f_tell(fp);
     FRESULT res = f_lseek(fp, pos);
     if(res != FR_OK)
@@ -284,18 +284,18 @@ static FSError fatfs_seek(FIL* fp, uint pos){
         res = f_lseek(fp, old_pos);
         if(res != FR_OK)
             return fatfs_map_error(res);
-        return FS_ERROR_OUT_OF_RANGE;
+        return FAT_ERROR_OUT_OF_RANGE;
     }
-    return FS_ERROR_OK;
+    return FAT_ERROR_OK;
 }
 
-static FSError fatfs_read_file(FAT_ReadFileRequest *req){
+static FATError fatfs_read_file(FAT_ReadFileRequest *req){
     PathFIL *fp = *(req->file);
     debug_printf("%s: ReadFile(%p, %d, %d, %u, %p (%s), 0x%x)", MODULE_NAME, req->buffer, req->size, req->count, req->pos,fp, fp->path, req->flags);
 
     if(req->flags & READ_REQUEST_WITH_POS){
-        FSError error = fatfs_seek(&fp->fil, req->pos);
-        if(error != FS_ERROR_OK)
+        FATError error = fatfs_seek(&fp->fil, req->pos);
+        if(error != FAT_ERROR_OK)
             return error;
     }
     UINT br;
@@ -306,7 +306,7 @@ static FSError fatfs_read_file(FAT_ReadFileRequest *req){
     return br / req->size;
 }
 
-static FSError fatfs_write_file(FAT_ReadFileRequest *req){
+static FATError fatfs_write_file(FAT_ReadFileRequest *req){
     PathFIL *fp = *req->file;
     FRESULT res;
     // TODO optimize: block seek for wo append, then we don't need to seek here for wo append
@@ -318,8 +318,8 @@ static FSError fatfs_write_file(FAT_ReadFileRequest *req){
     }
 
     if(req->flags & READ_REQUEST_WITH_POS){
-        FSError error = fatfs_seek(&fp->fil, req->pos);
-        if(error != FS_ERROR_OK)
+        FATError error = fatfs_seek(&fp->fil, req->pos);
+        if(error != FAT_ERROR_OK)
             return error;
     }
 
@@ -331,7 +331,7 @@ static FSError fatfs_write_file(FAT_ReadFileRequest *req){
     return bw / req->size;
 }
 
-static FSError fatfs_stat_file(FAT_StatFileRequest *req, int drive) {
+static FATError fatfs_stat_file(FAT_StatFileRequest *req, int drive) {
     PathFIL* fp = *req->fp;
     FILINFO info;
     debug_printf("%s: StatFile(%s)", MODULE_NAME, fp->path);
@@ -343,20 +343,20 @@ static FSError fatfs_stat_file(FAT_StatFileRequest *req, int drive) {
     return fatfs_map_error(res);
 }
 
-static FSError fatfs_close_file(FAT_CloseFileRequest *req){
+static FATError fatfs_close_file(FAT_CloseFileRequest *req){
     PathFIL *fp = *req->file;
     debug_printf("%s: CloseFile(%s)\n", MODULE_NAME, fp->path);
-    FSError res = f_close(&fp->fil);
+    FATError res = f_close(&fp->fil);
     ff_free_FIL(fp);
     return fatfs_map_error(res);
 }
 
-static FSError fatfs_setpos_file(FAT_SetPosFileRequest *req){
+static FATError fatfs_setpos_file(FAT_SetPosFileRequest *req){
     PathFIL *fp = *req->file;
     return fatfs_seek(&fp->fil, req->pos);
 }
 
-static FSError fatfs_stat_fs(FAT_StatFSRequest *req, int drive) {
+static FATError fatfs_stat_fs(FAT_StatFSRequest *req, int drive) {
     debug_printf("%s: StatFS type %d\n", MODULE_NAME, req->type);
     switch (req->type)
     {
@@ -370,15 +370,15 @@ static FSError fatfs_stat_fs(FAT_StatFSRequest *req, int drive) {
                 return fatfs_map_error(res);
             uint64_t free_sector = nclst * fs->csize;
             *(uint64_t*)req->out_ptr = free_sector * fs->ssize;
-            return FS_ERROR_OK;
+            return FAT_ERROR_OK;
 
         default:
             debug_printf("%s: Unimplemented FS Stat type: %d\n", MODULE_NAME, req->type);
-            return FS_ERROR_UNSUPPORTED_COMMAND;
+            return FAT_ERROR_UNSUPPORTED_COMMAND;
     }
 }
 
-static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
+static FATError fatfs_message_dispatch(FAT_WorkMessage *message){
 
     // commands not requiring drive
     switch (message->command)
