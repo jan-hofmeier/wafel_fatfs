@@ -184,6 +184,21 @@ static FSError fatfs_mount(int drive){
     return fatfs_map_error(res);
 }
 
+static FSError fatfs_unmount(FAT_UnmountRequest *req, int drive) {
+    debug_printf("%s: Unmount drive %d, handle 0x%X\n", MODULE_NAME, drive, req->handle);
+    if(fatfs_mounts[drive].mount_count > 0) {
+        fatfs_mounts[drive].mount_count--;
+    }
+    if(fatfs_mounts[drive].mount_count == 0 && fatfs_mounts[drive].mounted){
+        TCHAR path[5];
+        snprintf(path, sizeof(path), "%d:", drive);
+        FRESULT res = f_mount(0, path, 0);
+        fatfs_mounts[drive].mounted = false;
+        return fatfs_map_error(res);
+    }
+    return FS_ERROR_OK;
+}
+
 static FSError fatfs_open_dir(FAT_OpenDirRequest *req, int drive){
     PathDIR *dp = ff_allocate_DIR();
     if(!dp) {
@@ -333,8 +348,8 @@ static FSError fatfs_message_dispatch(FAT_WorkMessage *message){
     switch(message->command){
         case 0x02:
             return fatfs_mount(drive);
-        //case 0x03:
-            //deattached
+        case 0x03:
+            return fatfs_unmount(&message->request.unmount, drive);
         case 0x06:
             return fatfs_open_dir(&message->request.open_dir, drive);
         case 0x07:

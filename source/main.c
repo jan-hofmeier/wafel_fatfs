@@ -68,7 +68,7 @@ void fsfat_command_switch(FAT_WorkMessage *message){
     switch(message->command){
         case 0x02:
             return fsfat_mount0(message);
-        case 0x03:
+        //case 0x03:
             //deattached
         case 0x0a:
             return fsfat_open_file(message);

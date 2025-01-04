@@ -236,9 +236,9 @@ typedef enum SALDeviceType { /* from dimok, unknown accuracy https://github.com/
     SAL_DEVICE_MLCORIG=18
 } __attribute__ ((__packed__)) SALDeviceType;
 
-struct FAT_UnmountRequest {
+typedef struct FAT_UnmountRequest {
     int handle;
-};
+} FAT_UnmountRequest;
 
 typedef struct FAT_ReadDirRequest {
     void **dp;
@@ -305,7 +305,7 @@ typedef struct FAT_CloseDirRequst {
 
 union FAT_Request {
     struct FAT_FormatDeviceRequest format_device;
-    struct FAT_UnmountRequest unmount;
+    FAT_UnmountRequest unmount;
     struct FAT_MkdirRequest mkdir;
     struct FAT_BaseRequest _b; /* fake to pad struct */
     FAT_OpenDirRequest open_dir;
