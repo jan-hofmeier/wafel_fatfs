@@ -214,8 +214,6 @@ typedef struct FAT_FormatDeviceRequest FAT_FormatDeviceRequest, *PFAT_FormatDevi
 
 typedef struct FAT_UnmountRequest FAT_UnmountRequest, *PFAT_UnmountRequest;
 
-typedef struct FAT_MkdirRequest FAT_MkdirRequest, *PFAT_MkdirRequest;
-
 typedef struct FAT_BaseRequest FAT_BaseRequest, *PFAT_BaseRequest;
 
 typedef uint FSSALHandle, *PFSSALHandle;
@@ -291,10 +289,10 @@ struct FAT_BaseRequest {
     char unknown[1028];
 };
 
-struct FAT_MkdirRequest {
+typedef struct FAT_MkdirRequest {
     char path[512];
     uint permissions;
-};
+} FAT_MkdirRequest;
 
 // struct FSSALHandle {
 //     enum SALDeviceType type;
@@ -373,7 +371,7 @@ typedef struct FAT_StatFSRequest {
 union FAT_Request {
     struct FAT_FormatDeviceRequest format_device;
     FAT_UnmountRequest unmount;
-    struct FAT_MkdirRequest mkdir;
+    FAT_MkdirRequest make_dir;
     struct FAT_BaseRequest _b; /* fake to pad struct */
     FAT_OpenDirRequest open_dir;
     FAT_ReadDirRequest read_dir;

@@ -198,6 +198,13 @@ static FATError fatfs_unmount(FAT_UnmountRequest *req, int drive) {
     return FAT_ERROR_OK;
 }
 
+static FATError fatfs_make_dir(FAT_MkdirRequest *req, int drive){
+    char path_buf[512+4];
+    snprintf(path_buf, sizeof(path_buf), "%d:%s", drive, req->path);
+    FRESULT res = f_mkdir(path_buf);
+    return fatfs_map_error(res);
+}
+
 static FATError fatfs_open_dir(FAT_OpenDirRequest *req, int drive){
     PathDIR *dp = ff_allocate_DIR();
     if(!dp) {
@@ -437,6 +444,8 @@ static FATError fatfs_message_dispatch(FAT_WorkMessage *message){
             return fatfs_mount(drive);
         case 0x03:
             return fatfs_unmount(&message->request.unmount, drive);
+        case 0x04:
+            return fatfs_make_dir(&message->request.make_dir, drive);
         case 0x06:
             return fatfs_open_dir(&message->request.open_dir, drive);
         case 0x07:
