@@ -356,7 +356,7 @@ static FATError fatfs_close_file(FAT_CloseFileRequest *req){
 }
 
 static FATError fatfs_remove(FAT_RemoveRequest *req, int drive){
-    char path_buf[512+4];
+    TCHAR path_buf[512+4];
     snprintf(path_buf, sizeof(path_buf), "%d:%s", drive, req->path);
     FRESULT res = f_unlink(path_buf);
     return fatfs_map_error(res);
@@ -364,19 +364,29 @@ static FATError fatfs_remove(FAT_RemoveRequest *req, int drive){
 
 static FATError fatfs_stat_fs(FAT_StatFSRequest *req, int drive) {
     debug_printf("%s: StatFS type %d\n", MODULE_NAME, req->type);
+    TCHAR path_buf[512+4];
+    FRESULT res;
     switch (req->type)
     {
         case FS_STAT_FREE_SPACE:
             DWORD nclst;
             FATFS *fs;
-            TCHAR path[5];
-            snprintf(path, sizeof(path), "%d:", drive);
-            FRESULT res = f_getfree(path, &nclst, &fs);
+            snprintf(path_buf, sizeof(path_buf), "%d:", drive);
+            res = f_getfree(path_buf, &nclst, &fs);
             if(res != FR_OK)
                 return fatfs_map_error(res);
             uint64_t free_sector = nclst * fs->csize;
             *(uint64_t*)req->out_ptr = free_sector * fs->ssize;
             return FAT_ERROR_OK;
+        case FS_STAT_GETSTAT:
+            snprintf(path_buf, sizeof(path_buf), "%d:%s", drive, req->path);
+            FILINFO info;
+            debug_printf("%s: StatDir(%s)", MODULE_NAME, path_buf);
+            res = f_stat(path_buf, &info);
+            if(res == FR_OK){
+                convert_filinfo_to_fsstat(&info, req->out_ptr, drive);
+            }
+            return fatfs_map_error(res);
 
         default:
             debug_printf("%s: Unimplemented FS Stat type: %d\n", MODULE_NAME, req->type);

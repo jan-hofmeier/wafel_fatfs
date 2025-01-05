@@ -356,7 +356,7 @@ typedef enum FS_StatFSType : uint32_t {
     FS_STAT_ENTRY_NUM = 2,
     FS_STAT_FSINFO = 3,
     FS_STAT_UKN_4 = 4,
-    FS_STAT_INIT_STAT = 5,
+    FS_STAT_GETSTAT = 5,
     FS_STAT_UKN_7 = 7
 } FS_StatFSType;
 
