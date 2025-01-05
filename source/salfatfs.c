@@ -33,7 +33,6 @@ typedef struct PathDIR {
     char path[512+4];
 } PathDIR;
 
-
 int salfatfs_find_index(uint volume_handle){
     for(int i=0; i<FF_VOLUMES; i++){
         if(fatfs_mounts[i].used && fatfs_mounts[i].volume_handle)
@@ -356,8 +355,10 @@ static FATError fatfs_close_file(FAT_CloseFileRequest *req){
     return fatfs_map_error(res);
 }
 
-static FATError fatfs_remove(FAT_RemoveRequest *req){
-    FRESULT res = f_unlink(req->path);
+static FATError fatfs_remove(FAT_RemoveRequest *req, int drive){
+    char path_buf[512+4];
+    snprintf(path_buf, sizeof(path_buf), "%d:%s", drive, req->path);
+    FRESULT res = f_unlink(path_buf);
     return fatfs_map_error(res);
 }
 
@@ -400,8 +401,6 @@ static FATError fatfs_message_dispatch(FAT_WorkMessage *message){
             return fatfs_setpos_file(&message->request.setpos_file);
         case 0x13:
             return fatfs_close_file(&message->request.close_file);
-        case 0x15:
-            return fatfs_remove(&message->request.remove);
         case 0x2a:
             char drive_char;
             message->worker->retval = FSFAT_init_stuff(&drive_char);
@@ -436,6 +435,8 @@ static FATError fatfs_message_dispatch(FAT_WorkMessage *message){
             return fatfs_open_file(&message->request.open_file, drive);
         case 0x10:
             return fatfs_stat_file(&message->request.stat_file, drive);
+        case 0x15:
+            return fatfs_remove(&message->request.remove, drive);
         case 0x19:
             return fatfs_stat_fs(&message->request.stat_fs, drive);
     }
