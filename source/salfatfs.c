@@ -480,7 +480,7 @@ static FATError fatfs_message_dispatch(FAT_WorkMessage *message){
 
     int drive = salfatfs_find_index(message->volume_handle);
     if(drive<0){
-        DPRINTF(3, ("%s: Unknown volume: %08X\n", MODULE_NAME, message->volume_handle));
+        debug_printf("%s: Unknown volume: %08X\n", MODULE_NAME, message->volume_handle);
         return -1;
     }
 
@@ -508,7 +508,7 @@ static FATError fatfs_message_dispatch(FAT_WorkMessage *message){
             return fatfs_stat_fs(&message->request.stat_fs, drive);
     }
 
-    DPRINTF(3, ("%s: Unknown command 0x%x!!!! HALTING\n", MODULE_NAME, message->command));
+    debug_printf("%s: Unknown command 0x%x!!!! HALTING\n", MODULE_NAME, message->command);
     while(1);
     return -1;
 }
