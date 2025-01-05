@@ -261,7 +261,7 @@ static FATError fatfs_read_dir(FAT_ReadDirRequest *req, int drive){
     debug_printf("%s: read_dir %p, %s, returned 0x%x\n", MODULE_NAME, dp, dp->path, res);
     if(res == FR_OK){
         if(info.fname[0] == 0){
-            debug_printf("FAT_ERROR_END_OF_DIR");
+            debug_printf("FAT_ERROR_END_OF_DIR\n");
             return FAT_ERROR_END_OF_DIR;
         }
         strncpy(req->entry->name, info.fname, sizeof(req->entry->name));
@@ -388,6 +388,16 @@ static FATError fatfs_remove(FAT_RemoveRequest *req, int drive){
     return fatfs_map_error(res);
 }
 
+static FATError fatfs_rename(FAT_RenameRequest *req, int drive){
+    TCHAR path_buf[512+4];
+    snprintf(path_buf, sizeof(path_buf), "%d:%s", drive, req->path);
+    TCHAR path2_buf[512+4];
+    snprintf(path2_buf, sizeof(path2_buf), "%d:%s", drive, req->new_name);
+    FRESULT res = f_rename(path_buf, path2_buf);
+    debug_printf("%s: Rename(%s, %s) -> 0x%x\n", MODULE_NAME, path_buf, path2_buf, res);
+    return fatfs_map_error(res);
+}
+
 static FATError fatfs_stat_fs(FAT_StatFSRequest *req, int drive) {
     debug_printf("%s: StatFS type %d\n", MODULE_NAME, req->type);
     TCHAR path_buf[512+4];
@@ -483,6 +493,8 @@ static FATError fatfs_message_dispatch(FAT_WorkMessage *message){
             return fatfs_stat_file(&message->request.stat_file, drive);
         case 0x15:
             return fatfs_remove(&message->request.remove, drive);
+        case 0x16:
+            return fatfs_rename(&message->request.rename, drive);
         case 0x19:
             return fatfs_stat_fs(&message->request.stat_fs, drive);
     }
@@ -493,7 +505,9 @@ static FATError fatfs_message_dispatch(FAT_WorkMessage *message){
 }
 
 void salfatfs_process_message(FAT_WorkMessage *message){
+    debug_printf("%s: Command: %08X\n", MODULE_NAME, message->command);
     int ret = fatfs_message_dispatch(message);
+    debug_printf("%s: Command: 0x%02X returned 0x%x\n", MODULE_NAME, message->command, ret);
     if(message->callback)
         message->callback(ret, message->calback_data);
 }

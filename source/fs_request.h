@@ -362,6 +362,11 @@ typedef struct FAT_RemoveRequest {
     char path[512];
 } FAT_RemoveRequest;
 
+typedef struct FAT_RenameRequest {
+    char path[512];
+    char new_name[512];
+} FAT_RenameRequest;
+
 typedef struct FAT_StatFSRequest {
     char path[512];
     FS_StatFSType type;
@@ -382,6 +387,7 @@ union FAT_Request {
     FAT_StatFileRequest stat_file;
     FAT_CloseFileRequest close_file;
     FAT_RemoveRequest remove;
+    FAT_RenameRequest rename;
     FAT_StatFSRequest stat_fs;
 };
 
