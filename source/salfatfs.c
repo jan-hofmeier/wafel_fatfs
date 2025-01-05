@@ -161,6 +161,7 @@ static BYTE parse_mode_str(char *mode_str){
 static FATError fatfs_mount(int drive){
     if(fatfs_mounts[drive].mounted){
         fatfs_mounts[drive].mount_count++;
+        return FAT_ERROR_OK;
     }
 
     TCHAR path[5];
