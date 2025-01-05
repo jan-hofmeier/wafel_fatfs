@@ -73,6 +73,7 @@ DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count) {
             return RES_ERROR;
         memcpy(buff, aligned_buffer, to_rw * sector_size);
         buff += to_rw* sector_size;
+        sector+=to_rw;
         count-= to_rw;
     }
     return RES_OK;
@@ -107,6 +108,7 @@ DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count) {
             return RES_ERROR;
         }
         buff += to_rw* sector_size;
+        sector+=to_rw;
         count-= to_rw;
     }
     return RES_OK;
