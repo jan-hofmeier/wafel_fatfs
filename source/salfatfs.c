@@ -205,7 +205,7 @@ static FATError fatfs_make_dir(FAT_MkdirRequest *req, int drive){
     FRESULT res = f_mkdir(path_buf);
     if(res == FR_NO_PATH){
         char *pos = strchr(path_buf, '/'); //skip root
-        while(pos) {
+        while(pos && pos[1]) {
             pos = strchr(pos + 1, '/');
             if(pos)
                 *pos = 0;
