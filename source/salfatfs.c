@@ -203,6 +203,20 @@ static FATError fatfs_make_dir(FAT_MkdirRequest *req, int drive){
     char path_buf[512+4];
     snprintf(path_buf, sizeof(path_buf), "%d:%s", drive, req->path);
     FRESULT res = f_mkdir(path_buf);
+    if(res == FR_NO_PATH){
+        char *pos = strchr(path_buf, '/'); //skip root
+        while(pos) {
+            pos = strchr(pos + 1, '/');
+            if(pos)
+                *pos = 0;
+            res = f_mkdir(path_buf);
+            if(pos)
+                *pos = '/';
+            if(res != FR_OK && res != FR_EXIST)
+                break;
+        }
+    }
+    debug_printf("%s: make_dir %s returned 0x%x\n", MODULE_NAME, path_buf, res);
     return fatfs_map_error(res);
 }
 
