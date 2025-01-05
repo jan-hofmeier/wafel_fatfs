@@ -509,8 +509,10 @@ static FATError fatfs_message_dispatch(FAT_WorkMessage *message){
     }
 
     debug_printf("%s: Unknown command 0x%x!!!! HALTING\n", MODULE_NAME, message->command);
+#ifdef FATFS_DEBUG    
     while(1);
-    return -1;
+#endif
+    return FAT_ERROR_UNSUPPORTED_COMMAND;
 }
 
 void salfatfs_process_message(FAT_WorkMessage *message){
