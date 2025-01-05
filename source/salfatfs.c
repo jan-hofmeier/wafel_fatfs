@@ -66,7 +66,7 @@ FATFS* ff_allocate_FATFS(void){
     FATFS *fs = malloc_local(sizeof(FATFS));
     if(!fs)
         return fs;
-    fs->win = iosAllocAligned(HEAPID_LOCAL, FF_MAX_SS, 0x20);
+    fs->win = iosAllocAligned(HEAPID_LOCAL, FF_MAX_SS, SALIO_ALIGNMENT);
     if(!fs->win){
         free_local(fs);
         return NULL;
@@ -83,7 +83,7 @@ PathFIL* ff_allocate_FIL(void){
     PathFIL *fp = malloc_local(sizeof(PathFIL));
     if(!fp)
         return fp;
-    fp->fil.buf = iosAllocAligned(HEAPID_LOCAL, FF_MAX_SS, 0x20);
+    fp->fil.buf = iosAllocAligned(HEAPID_LOCAL, FF_MAX_SS, SALIO_ALIGNMENT);
     if(!fp->fil.buf){
         free_local(fp);
         return NULL;
