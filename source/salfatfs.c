@@ -298,18 +298,22 @@ static FATError fatfs_seek(FIL* fp, uint pos){
 
 static FATError fatfs_read_file(FAT_ReadFileRequest *req){
     PathFIL *fp = *(req->file);
-    debug_printf("%s: ReadFile(%p, %d, %d, %u, %p (%s), 0x%x)", MODULE_NAME, req->buffer, req->size, req->count, req->pos,fp, fp->path, req->flags);
+    debug_printf("%s: ReadFile(%p, %d, %d, %u, %p (%s), 0x%x)\n", MODULE_NAME, req->buffer, req->size, req->count, req->pos,fp, fp->path, req->flags);
 
     if(req->flags & READ_REQUEST_WITH_POS){
         FATError error = fatfs_seek(&fp->fil, req->pos);
-        if(error != FAT_ERROR_OK)
+        if(error != FAT_ERROR_OK) {
+            debug_printf("Seek returned %d\n", error);
             return error;
+        }
     }
     UINT br;
     FRESULT res = f_read(&fp->fil, req->buffer, req->size * req->count, &br);
-    if(res != FR_OK)
+    if(res != FR_OK) {
+        debug_printf("Read Error: 0x%x\n", res);
         return fatfs_map_error(res);
-    debug_printf("read: %d bytes\n", br);
+    }
+    //debug_printf("read: %d bytes\n", br);
     return br / req->size;
 }
 
@@ -424,6 +428,8 @@ static FATError fatfs_message_dispatch(FAT_WorkMessage *message){
             message->worker->retval = FSFAT_init_stuff(&drive_char);
             message->worker->set = 1;
             return 0;
+        case 0x2b:
+            return 0; // TODO unmount?
         case 0x2c: 
             FSFAT_set_mounted1(true);
             message->worker->retval = 1;

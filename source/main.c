@@ -84,11 +84,11 @@ void fsfat_command_switch(FAT_WorkMessage *message){
 void fsfat_hook(trampoline_state *regs){
     FAT_WorkMessage *message = (FAT_WorkMessage*)regs->r[7];
     
-    debug_printf("FSFAT_ActiveDeviceHandle: %X\n", *((int*)0x10bb7e4c));
-    debug_printf("FATFS Message:");
-    print_hex((u8*)message, 0x24);
+    // debug_printf("FSFAT_ActiveDeviceHandle: %X\n", *((int*)0x10bb7e4c));
+    // debug_printf("FATFS Message:");
+    // print_hex((u8*)message, 0x24);
 
-    fsfat_command_switch(message);
+    // fsfat_command_switch(message);
 
     salfatfs_process_message(message);
     regs->lr = 0x1078a664;

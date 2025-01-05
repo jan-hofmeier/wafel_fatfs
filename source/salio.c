@@ -42,23 +42,12 @@ DSTATUS disk_status (BYTE pdrv) {
     return 0; // TODO
 }
 
-struct rw_cb_ctx {
-    int semaphore;
-    int res;
-} typedef rw_cb_ctx;
-
-static void rw_callback(int res, void *ctx){
-    debug_printf("%s: rw_callback res: %x\n", MODULE_NAME, res);
-    rw_cb_ctx *c = (rw_cb_ctx *)ctx;
-    c->res = res;
-    iosSignalSemaphore(c->semaphore);
-}
-
 static DRESULT aligned_sync_rw(BYTE pdrv, BYTE* buff, LBA_t sector, UINT count, uint32_t (*raw_rw)(FSSALHandle device,uint32_t lba_hi,uint lba, uint32_t blkCount,void *buf,
                       void (*cb)(int, void*),void *cb_ctx)){
 
     int res = raw_rw(device_handles[pdrv], sector>>32, sector, count, buff, NULL, NULL);
-    debug_printf("%s: raw_rw returned: %x\n", MODULE_NAME, res);
+    if(res)
+        debug_printf("%s: raw_rw returned: %x\n", MODULE_NAME, res);
     return res?RES_ERROR:RES_OK;
 }
 
@@ -92,7 +81,7 @@ static DRESULT sync_rw(BYTE pdrv, BYTE* buff, LBA_t sector, UINT count, uint32_t
 }
 
 DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count) {
-    debug_printf("%s: disk_read(%d, %p, %d, %d)\n", MODULE_NAME, pdrv, buff, (uint)sector, count);
+    //debug_printf("%s: disk_read(%d, %p, %d, %d)\n", MODULE_NAME, pdrv, buff, (uint)sector, count);
     return sync_rw(pdrv, buff, sector, count, FSSAL_RawRead);
 }
 
