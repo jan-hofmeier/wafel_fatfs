@@ -27,11 +27,13 @@ FSSALDevice* (*FSSAL_LookupDevice)(FSSALHandle device) = (void*)0x10733990;
 
 static uint32_t device_handles[FF_VOLUMES];
 static uint32_t sector_sizes[FF_VOLUMES];
+static bool sync_unsupported[FF_VOLUMES];
 
 void salio_set_dev_handle(int index, uint dev_handle){
     device_handles[index] = dev_handle;
     FSSALDevice* device = FSSAL_LookupDevice(dev_handle);
     sector_sizes[index] = device->block_size;
+    sync_unsupported[index] = false;
 }
 
 DSTATUS disk_initialize (BYTE pdrv){
@@ -95,8 +97,14 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff){
     switch (cmd)
     {
         case CTRL_SYNC:
-            int res = FSSAL_Sync(device_handles[pdrv], 0, 0, 0, NULL, NULL);
+            if(sync_unsupported[pdrv])
+                return RES_OK;
+            int res = FSSAL_Sync(device_handles[pdrv], 0, 0, 1, NULL, NULL);
             debug_printf("SYNC res: 0x%x\n", res);
+            if(res == -0x90002){ // not supported
+                sync_unsupported[pdrv] = true;
+                return RES_OK;
+            }
             return res?RES_ERROR:RES_OK;
         case GET_SECTOR_SIZE:
             debug_printf("SECTOR SIZE: %i\n", sector_sizes[pdrv]);
