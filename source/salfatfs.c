@@ -393,7 +393,7 @@ static FATError fatfs_stat_fs(FAT_StatFSRequest *req, int drive) {
         case FS_STAT_GETSTAT:
             snprintf(path_buf, sizeof(path_buf), "%d:%s", drive, req->path);
             FILINFO info;
-            debug_printf("%s: StatDir(%s)", MODULE_NAME, path_buf);
+            debug_printf("%s: StatDir(%s)\n", MODULE_NAME, path_buf);
             res = f_stat(path_buf, &info);
             if(res == FR_OK){
                 convert_filinfo_to_fsstat(&info, req->out_ptr, drive);
