@@ -35,7 +35,7 @@ typedef struct PathDIR {
 
 int salfatfs_find_index(uint volume_handle){
     for(int i=0; i<FF_VOLUMES; i++){
-        if(fatfs_mounts[i].used && fatfs_mounts[i].volume_handle)
+        if(fatfs_mounts[i].used && fatfs_mounts[i].volume_handle == volume_handle)
             return i;
     }
     return -1;
