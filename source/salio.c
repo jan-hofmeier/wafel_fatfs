@@ -11,7 +11,13 @@
 
 static const char *MODULE_NAME = "SALIO";
 
+//#define FATFSIO_DEBUG 3
 
+#ifdef FATFSIO_DEBUG
+#define DPRINTF(n,s)    do { if ((n) <= FATFSIO_DEBUG) debug_printf s; } while (0)
+#else
+#define DPRINTF(n,s)    do {} while(0)
+#endif
 
 uint32_t (*FSSAL_RawRead)(FSSALHandle device,uint32_t lba_hi,uint lba, uint32_t blkCount, void *buf,
                       void (*cb)(int, void*),void *cb_ctx) = (void*)0x10732bc0;
@@ -47,14 +53,14 @@ DSTATUS disk_status (BYTE pdrv) {
 static BYTE aligned_buffer[512 * 128] ALIGNED(SALIO_ALIGNMENT);
 
 DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count) {
-    //debug_printf("%s: disk_read(%d, %p, %d, %d)\n", MODULE_NAME, pdrv, buff, (uint)sector, count);
     int res;
     if((uint)buff % SALIO_ALIGNMENT == 0){
         res = FSSAL_RawRead(device_handles[pdrv], sector>>32,sector, count, buff, NULL, NULL);
+        DPRINTF(3, ("%s: disk_read(%d, %p, %d, %d) -> 0x%x\n", MODULE_NAME, pdrv, buff, (uint)sector, count, res));
         return res?RES_ERROR:RES_OK;
     }
 
-    debug_printf("%s: unaligned disk_read(%d, %p, %d, %d)\n", MODULE_NAME, pdrv, buff, (uint)sector, count);
+    DPRINTF(3, ("%s: unaligned disk_read(%d, %p, %d, %d)\n", MODULE_NAME, pdrv, buff, (uint)sector, count));
 
     u32 sector_size = sector_sizes[pdrv];
     int buffer_sectors = sizeof(aligned_buffer) / sector_size;
@@ -69,8 +75,10 @@ DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count) {
     while(count){
         UINT to_rw = min(count, buffer_sectors);
         res = FSSAL_RawRead(device_handles[pdrv], sector>>32,sector, to_rw, aligned_buffer, NULL, NULL);
-        if(res)
+        if(res) {
+            DPRINTF(3, ("%s: unaligned disk_read(%d, %p, %d, %d) -> failed 0x%x\n", MODULE_NAME, pdrv, buff, (uint)sector, count, res));
             return RES_ERROR;
+        }
         memcpy(buff, aligned_buffer, to_rw * sector_size);
         buff += to_rw* sector_size;
         sector+=to_rw;
@@ -83,11 +91,11 @@ DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count) {
     int res;
     if((uint)buff % SALIO_ALIGNMENT == 0){
         res = FSSAL_RawWrite(device_handles[pdrv], sector>>32,sector, count, buff, NULL, NULL);
-        debug_printf("%s: disk_write(%d, %p, %d, %d) -> 0x%x\n", MODULE_NAME, pdrv, buff, (uint)sector, count, res);
+        DPRINTF(3, ("%s: disk_write(%d, %p, %d, %d) -> 0x%x\n", MODULE_NAME, pdrv, buff, (uint)sector, count, res));
         return res?RES_ERROR:RES_OK;
     }
 
-    debug_printf("%s: unaligned disk_write(%d, %p, %d, %d)\n", MODULE_NAME, pdrv, buff, (uint)sector, count);
+    DPRINTF(3, ("%s: unaligned disk_write(%d, %p, %d, %d)\n", MODULE_NAME, pdrv, buff, (uint)sector, count));
 
     u32 sector_size = sector_sizes[pdrv];
     UINT buffer_sectors = sizeof(aligned_buffer) / sector_size;
@@ -104,7 +112,7 @@ DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count) {
         memcpy(aligned_buffer, buff, to_rw * sector_size);
         res = FSSAL_RawWrite(device_handles[pdrv], sector>>32,sector, to_rw, aligned_buffer, NULL, NULL);
         if(res){
-            debug_printf("%s: unaligned disk_write(%d, %p, %d, %d) -> failed 0x%x\n", MODULE_NAME, pdrv, buff, (uint)sector, count, res);
+            DPRINTF(3, ("%s: unaligned disk_write(%d, %p, %d, %d) -> failed 0x%x\n", MODULE_NAME, pdrv, buff, (uint)sector, count, res));
             return RES_ERROR;
         }
         buff += to_rw* sector_size;
@@ -115,7 +123,7 @@ DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count) {
 }
 
 DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff){
-    debug_printf("%s: disk_ioctl(%i, %i, %p)\n", MODULE_NAME, pdrv, cmd, buff);
+    DPRINTF(3, ("%s: disk_ioctl(%i, %i, %p)\n", MODULE_NAME, pdrv, cmd, buff));
 
     switch (cmd)
     {
@@ -123,14 +131,14 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff){
             if(sync_unsupported[pdrv])
                 return RES_OK;
             int res = FSSAL_Sync(device_handles[pdrv], 0, 0, 0, NULL, NULL);
-            debug_printf("SYNC res: 0x%x\n", res);
+            DPRINTF(3, ("SYNC res: 0x%x\n", res));
             if(res == -0x90002){ // not supported
                 sync_unsupported[pdrv] = true;
                 return RES_OK;
             }
             return res?RES_ERROR:RES_OK;
         case GET_SECTOR_SIZE:
-            debug_printf("SECTOR SIZE: %i\n", sector_sizes[pdrv]);
+            DPRINTF(3, ("SECTOR SIZE: %i\n", sector_sizes[pdrv]));
             *(WORD*)buff = sector_sizes[pdrv];
             return RES_OK;
         case GET_SECTOR_COUNT:
@@ -144,7 +152,7 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff){
             return RES_OK;
     
     }
-    debug_printf("UNKOWN IOCTL %i\n", cmd);
+    DPRINTF(3, ("UNKOWN IOCTL %i\n", cmd));
     return RES_PARERR;
 }
 

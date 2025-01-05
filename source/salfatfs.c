@@ -13,6 +13,13 @@ static const char* MODULE_NAME = "SALFATFS";
 int (*FSFAT_init_stuff)(char*) = (void*)0x1078c834;
 void (*FSFAT_set_mounted1)(bool) = (void*)0x1078a614;
 
+//#define FATFS_DEBUG 3
+
+#ifdef FATFS_DEBUG
+#define DPRINTF(n,s)    do { if ((n) <= FATFS_DEBUG) debug_printf s; } while (0)
+#else
+#define DPRINTF(n,s)    do {} while(0)
+#endif
 
 static struct mounts {
     bool used;
@@ -167,7 +174,7 @@ static FATError fatfs_mount(int drive){
     TCHAR path[5];
     snprintf(path, sizeof(path), "%d:", drive);
     
-    debug_printf("%s: Mounting index: %d, path: %s, volume_handle: 0x%08x\n", MODULE_NAME, drive, path, fatfs_mounts[drive].volume_handle);
+    DPRINTF(3, ("%s: Mounting index: %d, path: %s, volume_handle: 0x%08x\n", MODULE_NAME, drive, path, fatfs_mounts[drive].volume_handle));
 
     if(!fatfs_mounts[drive].fs){
         fatfs_mounts[drive].fs = ff_allocate_FATFS();
@@ -176,7 +183,7 @@ static FATError fatfs_mount(int drive){
     }
 
     FRESULT res = f_mount(fatfs_mounts[drive].fs, path, 0);
-    debug_printf("%s: mount returned %x\n", MODULE_NAME, res);
+    DPRINTF(3, ("%s: mount returned %x\n", MODULE_NAME, res));
     if(res == FR_OK){
         fatfs_mounts[drive].mounted = true;
         fatfs_mounts[drive].mount_count = 1;;
@@ -185,7 +192,7 @@ static FATError fatfs_mount(int drive){
 }
 
 static FATError fatfs_unmount(FAT_UnmountRequest *req, int drive) {
-    debug_printf("%s: Unmount drive %d, handle 0x%X\n", MODULE_NAME, drive, req->handle);
+    DPRINTF(3, ("%s: Unmount drive %d, handle 0x%X\n", MODULE_NAME, drive, req->handle));
     if(fatfs_mounts[drive].mount_count > 0) {
         fatfs_mounts[drive].mount_count--;
     }
@@ -210,13 +217,14 @@ static FATError fatfs_make_dir(FAT_MkdirRequest *req, int drive){
             if(pos)
                 *pos = 0;
             res = f_mkdir(path_buf);
+            DPRINTF(3, ("%s: make_dir %s returned 0x%x\n", MODULE_NAME, path_buf, res));
             if(pos)
                 *pos = '/';
             if(res != FR_OK && res != FR_EXIST)
                 break;
         }
     }
-    debug_printf("%s: make_dir %s returned 0x%x\n", MODULE_NAME, path_buf, res);
+    DPRINTF(3, ("%s: make_dir %s returned 0x%x\n", MODULE_NAME, path_buf, res));
     return fatfs_map_error(res);
 }
 
@@ -228,7 +236,7 @@ static FATError fatfs_open_dir(FAT_OpenDirRequest *req, int drive){
     snprintf(dp->path, sizeof(dp->path), "%d:%s", drive, req->path);
 
     FRESULT res = f_opendir(&dp->dir, dp->path);
-    debug_printf("%s: open_dir %p, %s, returned 0x%x\n", MODULE_NAME, dp, dp->path, res);
+    DPRINTF(3, ("%s: open_dir %p, %s, returned 0x%x\n", MODULE_NAME, dp, dp->path, res));
     if(res != FR_OK){
         ff_free_DIR(dp);
         dp = NULL;
@@ -258,10 +266,10 @@ static FATError fatfs_read_dir(FAT_ReadDirRequest *req, int drive){
     PathDIR *dp = *req->dp;
     FILINFO info;
     FRESULT res = f_readdir(&dp->dir, &info);
-    debug_printf("%s: read_dir %p, %s, returned 0x%x\n", MODULE_NAME, dp, dp->path, res);
+    DPRINTF(3, ("%s: read_dir %p, %s, returned 0x%x\n", MODULE_NAME, dp, dp->path, res));
     if(res == FR_OK){
         if(info.fname[0] == 0){
-            debug_printf("FAT_ERROR_END_OF_DIR\n");
+            DPRINTF(3, ("FAT_ERROR_END_OF_DIR\n"));
             return FAT_ERROR_END_OF_DIR;
         }
         strncpy(req->entry->name, info.fname, sizeof(req->entry->name));
@@ -286,7 +294,7 @@ static FATError fatfs_open_file(FAT_OpenFileRequest *req, int drive){
     snprintf(fp->path, sizeof(fp->path), "%d:%s", drive, req->path);
 
     FRESULT res = f_open(&fp->fil, fp->path, mode);
-    debug_printf("%s: open_file %p, %s, 0x%x returned 0x%x\n", MODULE_NAME, fp, fp->path, mode, res);
+    DPRINTF(3, ("%s: open_file %p, %s, 0x%x returned 0x%x\n", MODULE_NAME, fp, fp->path, mode, res));
     if(res != FR_OK){
         ff_free_FIL(fp);
         fp = NULL;
@@ -312,22 +320,22 @@ static FATError fatfs_seek(FIL* fp, uint pos){
 
 static FATError fatfs_read_file(FAT_ReadFileRequest *req){
     PathFIL *fp = *(req->file);
-    debug_printf("%s: ReadFile(%p, %d, %d, %u, %p (%s), 0x%x)\n", MODULE_NAME, req->buffer, req->size, req->count, req->pos,fp, fp->path, req->flags);
+    DPRINTF(3, ("%s: ReadFile(%p, %d, %d, %u, %p (%s), 0x%x)\n", MODULE_NAME, req->buffer, req->size, req->count, req->pos,fp, fp->path, req->flags));
 
     if(req->flags & READ_REQUEST_WITH_POS){
         FATError error = fatfs_seek(&fp->fil, req->pos);
         if(error != FAT_ERROR_OK) {
-            debug_printf("Seek returned %d\n", error);
+            DPRINTF(3, ("Seek returned %d\n", error));
             return error;
         }
     }
     UINT br;
     FRESULT res = f_read(&fp->fil, req->buffer, req->size * req->count, &br);
     if(res != FR_OK) {
-        debug_printf("Read Error: 0x%x\n", res);
+        DPRINTF(3, ("Read Error: 0x%x\n", res));
         return fatfs_map_error(res);
     }
-    //debug_printf("read: %d bytes\n", br);
+    //DPRINTF(3, ("read: %d bytes\n", br);
     return br / req->size;
 }
 
@@ -359,12 +367,12 @@ static FATError fatfs_write_file(FAT_ReadFileRequest *req){
 static FATError fatfs_stat_file(FAT_StatFileRequest *req, int drive) {
     PathFIL* fp = *req->fp;
     FILINFO info;
-    debug_printf("%s: StatFile(%s)", MODULE_NAME, fp->path);
+    DPRINTF(3, ("%s: StatFile(%s)", MODULE_NAME, fp->path));
     FRESULT res = f_stat(fp->path, &info);
     if(res == FR_OK){
         convert_filinfo_to_fsstat(&info, req->stat, drive);
     }
-    debug_printf("%s: StatFile(%s) -> size: %d res: %d\n", MODULE_NAME, fp->path, info.fsize, res);
+    DPRINTF(3, ("%s: StatFile(%s) -> size: %d res: %d\n", MODULE_NAME, fp->path, info.fsize, res));
     return fatfs_map_error(res);
 }
 
@@ -375,7 +383,7 @@ static FATError fatfs_setpos_file(FAT_SetPosFileRequest *req){
 
 static FATError fatfs_close_file(FAT_CloseFileRequest *req){
     PathFIL *fp = *req->file;
-    debug_printf("%s: CloseFile(%s)\n", MODULE_NAME, fp->path);
+    DPRINTF(3, ("%s: CloseFile(%s)\n", MODULE_NAME, fp->path));
     FATError res = f_close(&fp->fil);
     ff_free_FIL(fp);
     return fatfs_map_error(res);
@@ -385,6 +393,7 @@ static FATError fatfs_remove(FAT_RemoveRequest *req, int drive){
     TCHAR path_buf[512+4];
     snprintf(path_buf, sizeof(path_buf), "%d:%s", drive, req->path);
     FRESULT res = f_unlink(path_buf);
+    DPRINTF(3, ("%s: Remove(%s) -> 0x%x\n", MODULE_NAME, path_buf, res));
     return fatfs_map_error(res);
 }
 
@@ -394,12 +403,12 @@ static FATError fatfs_rename(FAT_RenameRequest *req, int drive){
     TCHAR path2_buf[512+4];
     snprintf(path2_buf, sizeof(path2_buf), "%d:%s", drive, req->new_name);
     FRESULT res = f_rename(path_buf, path2_buf);
-    debug_printf("%s: Rename(%s, %s) -> 0x%x\n", MODULE_NAME, path_buf, path2_buf, res);
+    DPRINTF(3, ("%s: Rename(%s, %s) -> 0x%x\n", MODULE_NAME, path_buf, path2_buf, res));
     return fatfs_map_error(res);
 }
 
 static FATError fatfs_stat_fs(FAT_StatFSRequest *req, int drive) {
-    debug_printf("%s: StatFS type %d\n", MODULE_NAME, req->type);
+    DPRINTF(3, ("%s: StatFS type %d\n", MODULE_NAME, req->type));
     TCHAR path_buf[512+4];
     FRESULT res;
     switch (req->type)
@@ -416,14 +425,14 @@ static FATError fatfs_stat_fs(FAT_StatFSRequest *req, int drive) {
             return FAT_ERROR_OK;
         case FS_STAT_GETSTAT:
             snprintf(path_buf, sizeof(path_buf), "%d:%s", drive, req->path);
-            FILINFO info;
-            debug_printf("%s: StatDir(%s)\n", MODULE_NAME, path_buf);
+            DPRINTF(3, ("%s: StatDir(%s)\n", MODULE_NAME, path_buf));
             if(!strncmp(req->path, "/", 512)){
                 FSStat *stat = req->out_ptr;
                 stat->flags = 0x0c000000 | FS_STAT_DIRECTORY;
                 stat->mode = 0x666;
                 return FAT_ERROR_OK;
             }
+            FILINFO info;
             res = f_stat(path_buf, &info);
             if(res == FR_OK){
                 convert_filinfo_to_fsstat(&info, req->out_ptr, drive);
@@ -431,7 +440,7 @@ static FATError fatfs_stat_fs(FAT_StatFSRequest *req, int drive) {
             return fatfs_map_error(res);
 
         default:
-            debug_printf("%s: Unimplemented FS Stat type: %d\n", MODULE_NAME, req->type);
+            DPRINTF(3, ("%s: Unimplemented FS Stat type: %d\n", MODULE_NAME, req->type));
             return FAT_ERROR_UNSUPPORTED_COMMAND;
     }
 }
@@ -464,14 +473,14 @@ static FATError fatfs_message_dispatch(FAT_WorkMessage *message){
             FSFAT_set_mounted1(true);
             message->worker->retval = 1;
             message->worker->set = 1;
-            //debug_printf("%s: Ignoring command %x\n", MODULE_NAME, message->command);
+            //DPRINTF(3, ("%s: Ignoring command %x\n", MODULE_NAME, message->command));
             return 0; 
     
     }
 
     int drive = salfatfs_find_index(message->volume_handle);
     if(drive<0){
-        debug_printf("%s: Unknown volume: %08X\n", MODULE_NAME, message->volume_handle);
+        DPRINTF(3, ("%s: Unknown volume: %08X\n", MODULE_NAME, message->volume_handle));
         return -1;
     }
 
@@ -499,15 +508,15 @@ static FATError fatfs_message_dispatch(FAT_WorkMessage *message){
             return fatfs_stat_fs(&message->request.stat_fs, drive);
     }
 
-    debug_printf("%s: Unknown command 0x%x!!!! HALTING\n", MODULE_NAME, message->command);
+    DPRINTF(3, ("%s: Unknown command 0x%x!!!! HALTING\n", MODULE_NAME, message->command));
     while(1);
     return -1;
 }
 
 void salfatfs_process_message(FAT_WorkMessage *message){
-    debug_printf("%s: Command: %08X\n", MODULE_NAME, message->command);
+    DPRINTF(3, ("%s: Command: %02X\n", MODULE_NAME, message->command));
     int ret = fatfs_message_dispatch(message);
-    debug_printf("%s: Command: 0x%02X returned 0x%x\n", MODULE_NAME, message->command, ret);
+    DPRINTF(3, ("%s: Command: 0x%02X returned 0x%x\n", MODULE_NAME, message->command, ret));
     if(message->callback)
         message->callback(ret, message->calback_data);
 }
