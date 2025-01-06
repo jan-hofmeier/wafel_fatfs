@@ -161,5 +161,6 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff){
 DWORD get_fattime (void) {
     uint16_t date, time;
     FAT_GetDateTime(&date, &time, NULL);
-    return date<<16 | (time & 0xFFFF);
+    DPRINTF(3, ("%s: get_fattime date: 0x%04X, time: 0x%04X \n", MODULE_NAME, date, time));
+    return (DWORD)date<<16 | time;
 }
