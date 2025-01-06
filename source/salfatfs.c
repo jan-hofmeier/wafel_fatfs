@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <time.h>
 
 static const char* MODULE_NAME = "SALFATFS";
 
@@ -260,6 +261,18 @@ static void convert_filinfo_to_fsstat(FILINFO *info, FSStat *stat, int drive){
     uint32_t cs = fs->csize * fs->ssize;
     uint32_t slack = cs - info->fsize % cs;
     stat->allocSize = info->fsize + slack;
+
+    struct tm tinfo = {
+        .tm_year = (info->fdate >> 9) + 70,
+        .tm_mon = (info->fdate >> 5 & 15) - 1,
+        .tm_mday = info->fdate & 31,
+        .tm_hour = info->ftime >> 11,
+        .tm_min = info->ftime >> 5 & 63
+    };
+    time_t ts = mktime(&tinfo);
+    DPRINTF(3,("Stat time: %d-%d-%d %d:%d\n", tinfo.tm_year, tinfo.tm_mon + 1, tinfo.tm_mday, tinfo.tm_hour, tinfo.tm_min));
+    stat->modified = ts * 1000000UL;
+    
 }
 
 static FATError fatfs_read_dir(FAT_ReadDirRequest *req, int drive){
