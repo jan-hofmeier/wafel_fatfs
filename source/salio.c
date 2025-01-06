@@ -28,6 +28,8 @@ uint32_t (*FSSAL_RawWrite)(FSSALHandle device,uint32_t lba_hi,uint lba, uint32_t
 uint32_t (*FSSAL_Sync)(FSSALHandle device,uint32_t lba_hi,uint lba, uint32_t blkCount,
                       void (*cb)(int, void*),void *cb_ctx) = (void*)0x10732314;
 
+void (*FAT_GetDateTime)(uint16_t* date, uint16_t* time, void* something) = (void*) 0x10798d24;
+
 FSSALDevice* (*FSSAL_LookupDevice)(FSSALHandle device) = (void*)0x10733990;
 
 
@@ -157,5 +159,7 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff){
 }
 
 DWORD get_fattime (void) {
-    return 0; //TODO
+    uiint16_t date, time;
+    FAT_GetDateTime(&date, &time, NULL);
+    return date<<16 | (time & 0xFFFF);
 }
