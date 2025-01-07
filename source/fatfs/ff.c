@@ -3948,13 +3948,19 @@ FRESULT f_read (
 	remain = fp->obj.objsize - fp->fptr;
 	if (btr > remain) btr = (UINT)remain;		/* Truncate btr by remaining bytes */
 
+	DWORD next_clst = 0;
 	for ( ; btr > 0; btr -= rcnt, *br += rcnt, rbuff += rcnt, fp->fptr += rcnt) {	/* Repeat until btr bytes read */
 		if (fp->fptr % SS(fs) == 0) {			/* On the sector boundary? */
+			UINT clust_count = 1;
+			DWORD end_clst = 0;
+			cc = btr / SS(fs);				/* When remaining bytes >= sector size, */
 			csect = (UINT)(fp->fptr / SS(fs) & (fs->csize - 1));	/* Sector offset in the cluster */
 			if (csect == 0) {					/* On the cluster boundary? */
-				if (fp->fptr == 0) {			/* On the top of the file? */
+				if(next_clst) {
+					clst = next_clst; /* was already located in previous iteration */
+				} else 	if (fp->fptr == 0) {			/* On the top of the file? */
 					clst = fp->obj.sclust;		/* Follow cluster chain from the origin */
-				} else {						/* Middle or end of the file */
+				} else {						/* Middle or end of the file */				
 #if FF_USE_FASTSEEK
 					if (fp->cltbl) {
 						clst = clmt_clust(fp, fp->fptr);	/* Get cluster# from the CLMT */
@@ -3967,14 +3973,29 @@ FRESULT f_read (
 				if (clst < 2) ABORT(fs, FR_INT_ERR);
 				if (clst == 0xFFFFFFFF) ABORT(fs, FR_DISK_ERR);
 				fp->clust = clst;				/* Update current cluster */
+				UINT clst_to_read = ((cc + fs->csize -1) / fs->csize); // round up
+				end_clst = clst;
+				for(clust_count = 1; clust_count< clst_to_read; clust_count++) {
+#if FF_USE_FASTSEEK
+					if (fp->cltbl) {
+						next_clst = clmt_clust(fp, fp->fptr);	/* Get cluster# from the CLMT */
+					} else
+#endif
+					next_clst = get_fat(&fp->obj, end_clst);
+					if(next_clst != end_clst +1)
+						break;
+					end_clst = next_clst;
+					next_clst = 0;
+				}
+				if (next_clst == 1) ABORT(fs, FR_INT_ERR);
+				if (next_clst == 0xFFFFFFFF) ABORT(fs, FR_DISK_ERR);
 			}
 			sect = clst2sect(fs, fp->clust);	/* Get current sector */
 			if (sect == 0) ABORT(fs, FR_INT_ERR);
 			sect += csect;
-			cc = btr / SS(fs);					/* When remaining bytes >= sector size, */
 			if (cc > 0) {						/* Read maximum contiguous sectors directly */
-				if (csect + cc > fs->csize) {	/* Clip at cluster boundary */
-					cc = fs->csize - csect;
+				if (csect + cc > fs->csize * clust_count) {	/* Clip at cluster boundary */
+					cc = fs->csize * clust_count - csect;
 				}
 				if (disk_read(fs->pdrv, rbuff, sect, cc) != RES_OK) ABORT(fs, FR_DISK_ERR);
 #if !FF_FS_READONLY && FF_FS_MINIMIZE <= 2		/* Replace one of the read sectors with cached data if it contains a dirty sector */
@@ -3989,6 +4010,8 @@ FRESULT f_read (
 #endif
 #endif
 				rcnt = SS(fs) * cc;				/* Number of bytes transferred */
+				if(end_clst)
+					fp->clust = end_clst;
 				continue;
 			}
 #if !FF_FS_TINY
@@ -4057,7 +4080,6 @@ FRESULT f_write (
 			DWORD end_clst = 0;
 			cc = btw / SS(fs);				/* When remaining bytes >= sector size, */
 			csect = (UINT)(fp->fptr / SS(fs)) & (fs->csize - 1);	/* Sector offset in the cluster */
-			UINT clust_count = 1;
 			if (csect == 0) {				/* On the cluster boundary? */
 				if(next_clst) {
 						clst = next_clst; /* was already allocated in previous iteration */
@@ -4067,9 +4089,6 @@ FRESULT f_write (
 						clst = create_chain(&fp->obj, 0);	/* create a new cluster chain */
 					}
 				} else {					/* On the middle or end of the file */
-					if(next_clst) {
-						clst = next_clst; /* was already allocated in previous iteration */
-					} else 
 #if FF_USE_FASTSEEK
 					if (fp->cltbl) {
 						clst = clmt_clust(fp, fp->fptr);	/* Get cluster# from the CLMT */
