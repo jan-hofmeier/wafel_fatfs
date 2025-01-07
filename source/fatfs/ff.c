@@ -4053,11 +4053,15 @@ FRESULT f_write (
 	DWORD next_clst = 0;
 	for ( ; btw > 0; btw -= wcnt, *bw += wcnt, wbuff += wcnt, fp->fptr += wcnt, fp->obj.objsize = (fp->fptr > fp->obj.objsize) ? fp->fptr : fp->obj.objsize) {	/* Repeat until all data written */
 		if (fp->fptr % SS(fs) == 0) {		/* On the sector boundary? */
+			UINT clust_count = 1;
+			DWORD end_clst = 0;
 			cc = btw / SS(fs);				/* When remaining bytes >= sector size, */
 			csect = (UINT)(fp->fptr / SS(fs)) & (fs->csize - 1);	/* Sector offset in the cluster */
 			UINT clust_count = 1;
 			if (csect == 0) {				/* On the cluster boundary? */
-				if (fp->fptr == 0) {		/* On the top of the file? */
+				if(next_clst) {
+						clst = next_clst; /* was already allocated in previous iteration */
+				} else if (fp->fptr == 0) {		/* On the top of the file? */
 					clst = fp->obj.sclust;	/* Follow from the origin */
 					if (clst == 0) {		/* If no cluster is allocated, */
 						clst = create_chain(&fp->obj, 0);	/* create a new cluster chain */
@@ -4081,17 +4085,18 @@ FRESULT f_write (
 				fp->clust = clst;			/* Update current cluster */
 				if (fp->obj.sclust == 0) fp->obj.sclust = clst;	/* Set start cluster if the first write */
 				UINT clst_to_write = ((cc + fs->csize -1) / fs->csize); // round up
-				DWORD end_clst = clst;
+				end_clst = clst;
 				for(clust_count = 1; clust_count< clst_to_write; clust_count++) {
 #if FF_USE_FASTSEEK
 					if (fp->cltbl) {
 						next_clst = clmt_clust(fp, fp->fptr);	/* Get cluster# from the CLMT */
 					} else
 #endif
-					next_clst = create_chain(&fp->obj, fp->clust);
+					next_clst = create_chain(&fp->obj, end_clst);
 					if(next_clst != end_clst +1)
 						break;
 					end_clst = next_clst;
+					next_clst = 0;
 				}
 				if (next_clst == 1) ABORT(fs, FR_INT_ERR);
 				if (next_clst == 0xFFFFFFFF) ABORT(fs, FR_DISK_ERR);
@@ -4127,6 +4132,8 @@ FRESULT f_write (
 #endif
 #endif
 				wcnt = SS(fs) * cc;		/* Number of bytes transferred */
+				if(end_clst)
+					fp->clust = end_clst;
 				continue;
 			}
 #if FF_FS_TINY
