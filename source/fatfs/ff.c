@@ -4050,9 +4050,12 @@ FRESULT f_write (
 		btw = (UINT)(0xFFFFFFFF - (DWORD)fp->fptr);
 	}
 
+	DWORD next_clst = 0;
 	for ( ; btw > 0; btw -= wcnt, *bw += wcnt, wbuff += wcnt, fp->fptr += wcnt, fp->obj.objsize = (fp->fptr > fp->obj.objsize) ? fp->fptr : fp->obj.objsize) {	/* Repeat until all data written */
 		if (fp->fptr % SS(fs) == 0) {		/* On the sector boundary? */
+			cc = btw / SS(fs);				/* When remaining bytes >= sector size, */
 			csect = (UINT)(fp->fptr / SS(fs)) & (fs->csize - 1);	/* Sector offset in the cluster */
+			UINT clust_count = 1;
 			if (csect == 0) {				/* On the cluster boundary? */
 				if (fp->fptr == 0) {		/* On the top of the file? */
 					clst = fp->obj.sclust;	/* Follow from the origin */
@@ -4060,6 +4063,9 @@ FRESULT f_write (
 						clst = create_chain(&fp->obj, 0);	/* create a new cluster chain */
 					}
 				} else {					/* On the middle or end of the file */
+					if(next_clst) {
+						clst = next_clst; /* was already allocated in previous iteration */
+					} else 
 #if FF_USE_FASTSEEK
 					if (fp->cltbl) {
 						clst = clmt_clust(fp, fp->fptr);	/* Get cluster# from the CLMT */
@@ -4074,6 +4080,22 @@ FRESULT f_write (
 				if (clst == 0xFFFFFFFF) ABORT(fs, FR_DISK_ERR);
 				fp->clust = clst;			/* Update current cluster */
 				if (fp->obj.sclust == 0) fp->obj.sclust = clst;	/* Set start cluster if the first write */
+				UINT clst_to_write = ((cc + fs->csize -1) / fs->csize); // round up
+				DWORD end_clst = clst;
+				for(clust_count = 1; clust_count< clst_to_write; clust_count++) {
+#if FF_USE_FASTSEEK
+					if (fp->cltbl) {
+						next_clst = clmt_clust(fp, fp->fptr);	/* Get cluster# from the CLMT */
+					} else
+#endif
+					next_clst = create_chain(&fp->obj, fp->clust);
+					if(next_clst != end_clst +1)
+						break;
+					end_clst = next_clst;
+				}
+				if (next_clst == 1) ABORT(fs, FR_INT_ERR);
+				if (next_clst == 0xFFFFFFFF) ABORT(fs, FR_DISK_ERR);
+
 			}
 #if FF_FS_TINY
 			if (fs->winsect == fp->sect && sync_window(fs) != FR_OK) ABORT(fs, FR_DISK_ERR);	/* Write-back sector cache */
@@ -4086,10 +4108,9 @@ FRESULT f_write (
 			sect = clst2sect(fs, fp->clust);	/* Get current sector */
 			if (sect == 0) ABORT(fs, FR_INT_ERR);
 			sect += csect;
-			cc = btw / SS(fs);				/* When remaining bytes >= sector size, */
 			if (cc > 0) {					/* Write maximum contiguous sectors directly */
-				if (csect + cc > fs->csize) {	/* Clip at cluster boundary */
-					cc = fs->csize - csect;
+				if (csect + cc > fs->csize * clust_count) {	/* Clip at cluster boundary */
+					cc = fs->csize * clust_count - csect;
 				}
 				if (disk_write(fs->pdrv, wbuff, sect, cc) != RES_OK) ABORT(fs, FR_DISK_ERR);
 #if FF_FS_MINIMIZE <= 2
