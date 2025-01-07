@@ -3,6 +3,7 @@
 /*------------------------------------------------------------------------*/
 
 #include "ff.h"
+#include "salio.h"
 #include <wafel/ios/memory.h>
 
 
@@ -19,7 +20,7 @@ void* ff_memalloc (	/* Returns pointer to the allocated memory block (null if no
 	UINT msize		/* Number of bytes to allocate */
 )
 {
-	return malloc_local((size_t)msize);	/* Allocate a new memory block */
+	return iosAllocAligned(HEAPID_LOCAL, (size_t)msize, SALIO_ALIGNMENT);	/* Allocate a new memory block */
 }
 
 
