@@ -97,6 +97,7 @@ DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count) {
 }
 
 DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count) {
+    salio_device *dev = devices + pdrv;
     int res;
     if((uint)buff % SALIO_ALIGNMENT == 0){
         res = FSSAL_RawWrite(dev->device_handle, sector>>32,sector, count, buff, NULL, NULL);
@@ -133,25 +134,25 @@ DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count) {
 
 DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff){
     DPRINTF(3, ("%s: disk_ioctl(%i, %i, %p)\n", MODULE_NAME, pdrv, cmd, buff));
-
+    salio_device *dev = devices + pdrv;
     switch (cmd)
     {
         case CTRL_SYNC:
-            if(sync_unsupported[pdrv])
+            if(dev->sync_unsupported)
                 return RES_OK;
-            int res = FSSAL_Sync(device_handles[pdrv], 0, 0, 0, NULL, NULL);
+            int res = FSSAL_Sync(dev->device_handle, 0, 0, 0, NULL, NULL);
             DPRINTF(3, ("SYNC res: 0x%x\n", res));
             if(res == -0x90002){ // not supported
-                sync_unsupported[pdrv] = true;
+                dev->sync_unsupported = true;
                 return RES_OK;
             }
             return res?RES_ERROR:RES_OK;
         case GET_SECTOR_SIZE:
             DPRINTF(3, ("SECTOR SIZE: %i\n", sector_sizes[pdrv]));
-            *(WORD*)buff = sector_sizes[pdrv];
+            *(WORD*)buff = dev->sector_size;
             return RES_OK;
         case GET_SECTOR_COUNT:
-            FSSALDevice* device = FSSAL_LookupDevice(device_handles[pdrv]);
+            FSSALDevice* device = FSSAL_LookupDevice(dev->device_handle);
             if(!device)
                 return RES_PARERR;
             LBA_t bc = device->block_count_hi;
