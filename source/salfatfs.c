@@ -59,10 +59,12 @@ int salfatfs_add_volume(uint volume_handle, uint dev_handle){
 
     for(index=0; index<FF_VOLUMES; index++){
         if(!fatfs_mounts[index].used){
+            if(salio_set_dev_handle(index, dev_handle)<0){
+                return -1;
+            }
             fatfs_mounts[index].used = true;
             fatfs_mounts[index].volume_handle = volume_handle;
             fatfs_mounts[index].mounted = false;
-            salio_set_dev_handle(index, dev_handle);
             return index;
         }
     }

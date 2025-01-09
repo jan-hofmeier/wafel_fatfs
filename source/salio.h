@@ -3,4 +3,4 @@
 
 #define SALIO_ALIGNMENT 32
 
-void salio_set_dev_handle(int index, uint dev_handle);
+int salio_set_dev_handle(int index, uint dev_handle);
