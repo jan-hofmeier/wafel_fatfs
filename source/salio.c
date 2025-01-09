@@ -33,15 +33,21 @@ void (*FAT_GetDateTime)(uint16_t* date, uint16_t* time, void* something) = (void
 FSSALDevice* (*FSSAL_LookupDevice)(FSSALHandle device) = (void*)0x10733990;
 
 
-static uint32_t device_handles[FF_VOLUMES];
-static uint32_t sector_sizes[FF_VOLUMES];
-static bool sync_unsupported[FF_VOLUMES];
+typedef struct salio_device {
+    uint32_t device_handle;
+    uint32_t sector_size;
+    bool sync_unsupported;
+    int semaphore;   
+} salio_device;
+
+static salio_device devices[FF_VOLUMES] = { };
 
 void salio_set_dev_handle(int index, uint dev_handle){
-    device_handles[index] = dev_handle;
-    FSSALDevice* device = FSSAL_LookupDevice(dev_handle);
-    sector_sizes[index] = device->block_size;
-    sync_unsupported[index] = false;
+    salio_device *dev = devices + index;
+    dev->device_handle = dev_handle;
+    FSSALDevice* sal_device = FSSAL_LookupDevice(dev_handle);
+    dev->sector_size = sal_device->block_size;
+    dev->sync_unsupported = false;
 }
 
 DSTATUS disk_initialize (BYTE pdrv){
@@ -55,16 +61,17 @@ DSTATUS disk_status (BYTE pdrv) {
 static BYTE aligned_buffer[512 * 128] ALIGNED(SALIO_ALIGNMENT);
 
 DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count) {
+    salio_device *dev = devices + pdrv;
     int res;
     if((uint)buff % SALIO_ALIGNMENT == 0){
-        res = FSSAL_RawRead(device_handles[pdrv], sector>>32,sector, count, buff, NULL, NULL);
+        res = FSSAL_RawRead(dev->device_handle, sector>>32,sector, count, buff, NULL, NULL);
         DPRINTF(3, ("%s: disk_read(%d, %p, %d, %d) -> 0x%x\n", MODULE_NAME, pdrv, buff, (uint)sector, count, res));
         return res?RES_ERROR:RES_OK;
     }
 
     DPRINTF(3, ("%s: unaligned disk_read(%d, %p, %d, %d)\n", MODULE_NAME, pdrv, buff, (uint)sector, count));
 
-    u32 sector_size = sector_sizes[pdrv];
+    u32 sector_size = dev->sector_size;
     int buffer_sectors = sizeof(aligned_buffer) / sector_size;
 
     void (*memcpy)(void*,const void*, u32) = memcpy32;
@@ -76,7 +83,7 @@ DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count) {
 
     while(count){
         UINT to_rw = min(count, buffer_sectors);
-        res = FSSAL_RawRead(device_handles[pdrv], sector>>32,sector, to_rw, aligned_buffer, NULL, NULL);
+        res = FSSAL_RawRead(dev->device_handle, sector>>32,sector, to_rw, aligned_buffer, NULL, NULL);
         if(res) {
             DPRINTF(3, ("%s: unaligned disk_read(%d, %p, %d, %d) -> failed 0x%x\n", MODULE_NAME, pdrv, buff, (uint)sector, count, res));
             return RES_ERROR;
@@ -92,14 +99,14 @@ DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count) {
 DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count) {
     int res;
     if((uint)buff % SALIO_ALIGNMENT == 0){
-        res = FSSAL_RawWrite(device_handles[pdrv], sector>>32,sector, count, buff, NULL, NULL);
+        res = FSSAL_RawWrite(dev->device_handle, sector>>32,sector, count, buff, NULL, NULL);
         DPRINTF(3, ("%s: disk_write(%d, %p, %d, %d) -> 0x%x\n", MODULE_NAME, pdrv, buff, (uint)sector, count, res));
         return res?RES_ERROR:RES_OK;
     }
 
     DPRINTF(3, ("%s: unaligned disk_write(%d, %p, %d, %d)\n", MODULE_NAME, pdrv, buff, (uint)sector, count));
 
-    u32 sector_size = sector_sizes[pdrv];
+    u32 sector_size = dev->sector_size;
     UINT buffer_sectors = sizeof(aligned_buffer) / sector_size;
 
     void (*memcpy)(void*,const void*, u32) = memcpy32;
@@ -112,7 +119,7 @@ DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count) {
     while(count){
         UINT to_rw = min(count, buffer_sectors);
         memcpy(aligned_buffer, buff, to_rw * sector_size);
-        res = FSSAL_RawWrite(device_handles[pdrv], sector>>32,sector, to_rw, aligned_buffer, NULL, NULL);
+        res = FSSAL_RawWrite(dev->device_handle, sector>>32,sector, to_rw, aligned_buffer, NULL, NULL);
         if(res){
             DPRINTF(3, ("%s: unaligned disk_write(%d, %p, %d, %d) -> failed 0x%x\n", MODULE_NAME, pdrv, buff, (uint)sector, count, res));
             return RES_ERROR;
