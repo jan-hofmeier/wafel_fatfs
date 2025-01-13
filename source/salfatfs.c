@@ -14,7 +14,7 @@ static const char* MODULE_NAME = "SALFATFS";
 int (*FSFAT_init_stuff)(char*) = (void*)0x1078c834;
 void (*FSFAT_set_mounted1)(bool) = (void*)0x1078a614;
 
-//#define FATFS_DEBUG 3
+#define FATFS_DEBUG 3
 
 #ifdef FATFS_DEBUG
 #define DPRINTF(n,s)    do { if ((n) <= FATFS_DEBUG) debug_printf s; } while (0)
@@ -73,8 +73,8 @@ FATFS* ff_allocate_FATFS(void){
     FATFS *fs = malloc_local(sizeof(FATFS));
     if(!fs)
         return fs;
-    fs->win = iosAllocAligned(HEAPID_LOCAL, FF_MAX_SS, SALIO_ALIGNMENT);
-    if(!fs->win){
+    fs->win = fs->winbase = iosAllocAligned(HEAPID_LOCAL, FF_MAX_SS, SALIO_ALIGNMENT);
+    if(!fs->winbase){
         free_local(fs);
         return NULL;
     }

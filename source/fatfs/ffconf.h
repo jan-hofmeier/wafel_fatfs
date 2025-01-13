@@ -202,6 +202,8 @@
 /  configured for variable sector size mode and disk_ioctl() needs to implement
 /  GET_SECTOR_SIZE command. */
 
+#define FF_READ_SZ FF_MAX_SS
+
 
 #define FF_LBA64		1
 /* This option switches support for 64-bit LBA. (0:Disable or 1:Enable)

@@ -170,6 +170,9 @@ typedef struct {
 #if FF_FS_EXFAT
 	LBA_t	bitbase;		/* Allocation bitmap base sector */
 #endif
+	LBA_t winbase_sect;
+	BYTE *winbase;
+	UINT windbase_end_sect;
 	LBA_t	winsect;		/* Current sector appearing in the win[] */
 	BYTE	*win; //[FF_MAX_SS];	/* Disk access window for Directory, FAT (and file data at tiny cfg) */
 } FATFS;

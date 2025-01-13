@@ -1063,10 +1063,20 @@ static FRESULT sync_window (	/* Returns FR_OK or FR_DISK_ERR */
 
 
 	if (fs->wflag) {	/* Is the disk access window dirty? */
-		if (disk_write(fs->pdrv, fs->win, fs->winsect, 1) == RES_OK) {	/* Write it back into the volume */
+		BYTE *buff = fs->winbase;
+		UINT count = FF_READ_SZ/SS(fs);
+		LBA_t sect = fs->winbase_sect;
+		if((fs->win - fs->winbase) / SS(fs) != fs->winsect - fs->winbase_sect){
+			//modified outside, only writing one sector
+			buff = fs->win;
+			count = 1;
+			sect = fs->winsect;
+		}
+
+		if (disk_write(fs->pdrv, buff, sect, count) == RES_OK) {	/* Write it back into the volume */
 			fs->wflag = 0;	/* Clear window dirty flag */
-			if (fs->winsect - fs->fatbase < fs->fsize) {	/* Is it in the 1st FAT? */
-				if (fs->n_fats == 2) disk_write(fs->pdrv, fs->win, fs->winsect + fs->fsize, 1);	/* Reflect it to 2nd FAT if needed */
+			if (sect - fs->fatbase < fs->fsize) {	/* Is it in the 1st FAT? */
+				if (fs->n_fats == 2) disk_write(fs->pdrv, buff, sect + fs->fsize, count);	/* Reflect it to 2nd FAT if needed */
 			}
 		} else {
 			res = FR_DISK_ERR;
@@ -1084,18 +1094,28 @@ static FRESULT move_window (	/* Returns FR_OK or FR_DISK_ERR */
 {
 	FRESULT res = FR_OK;
 
+	if(sect == fs->winsect)
+		return res;
 
-	if (sect != fs->winsect) {	/* Window offset changed? */
-#if !FF_FS_READONLY
-		res = sync_window(fs);		/* Flush the window */
-#endif
-		if (res == FR_OK) {			/* Fill sector window with new data */
-			if (disk_read(fs->pdrv, fs->win, sect, 1) != RES_OK) {
-				sect = (LBA_t)0 - 1;	/* Invalidate window if read data is not valid */
-				res = FR_DISK_ERR;
-			}
+	if (((fs->win - fs->winbase) == (fs->winsect - fs->winbase_sect) * SS(fs)) && //window was modified outside
+			(sect >= fs->winbase_sect && sect < fs->windbase_end_sect)) {	/* Window offset changed? */
+			fs->win = fs->winbase + (sect - fs->winbase_sect) * SS(fs);
 			fs->winsect = sect;
+			return res;
+	}
+#if !FF_FS_READONLY
+	res = sync_window(fs);		/* Flush the window */
+#endif
+	if (res == FR_OK) {			/* Fill sector window with new data */
+		UINT count = FF_READ_SZ/SS(fs);
+		fs->win = fs->winbase;
+		if (disk_read(fs->pdrv, fs->winbase, sect, count) != RES_OK) {
+			sect = (LBA_t)0 - 1;	/* Invalidate window if read data is not valid */
+			res = FR_DISK_ERR;
 		}
+		fs->winsect = sect;
+		fs->winbase_sect = sect;
+		fs->windbase_end_sect = sect + count;
 	}
 	return res;
 }
@@ -1689,10 +1709,10 @@ static FRESULT dir_clear (	/* Returns FR_OK or FR_DISK_ERR */
 	memset(fs->win, 0, FF_MAX_SS);	/* Clear window buffer */
 #if FF_USE_LFN == 3		/* Quick table clear by using multi-secter write */
 	/* Allocate a temporary buffer */
-	for (szb = ((DWORD)fs->csize * SS(fs) >= MAX_MALLOC) ? MAX_MALLOC : fs->csize * SS(fs), ibuf = 0; szb > SS(fs) && (ibuf = ff_memalloc(szb)) == 0; szb /= 2) ;
-	if (szb > SS(fs)) {		/* Buffer allocated? */
+	for (szb = ((DWORD)fs->csize * SS(fs) >= MAX_MALLOC) ? MAX_MALLOC : fs->csize * SS(fs), ibuf = 0; szb > FF_MAX_SS && (ibuf = ff_memalloc(szb)) == 0; szb /= 2) ;
+	if (szb > FF_MAX_SS) {		/* Buffer allocated? */
 		memset(ibuf, 0, szb);
-		szb /= SS(fs);		/* Bytes -> Sectors */
+		szb /= FF_MAX_SS;		/* Bytes -> Sectors */
 		for (n = 0; n < fs->csize && disk_write(fs->pdrv, ibuf, sect + n, szb) == RES_OK; n += szb) ;	/* Fill the cluster with 0 */
 		ff_memfree(ibuf);
 	} else

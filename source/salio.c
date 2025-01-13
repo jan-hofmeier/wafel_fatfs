@@ -11,7 +11,7 @@
 
 static const char *MODULE_NAME = "SALIO";
 
-//#define FATFSIO_DEBUG 3
+#define FATFSIO_DEBUG 3
 
 #ifdef FATFSIO_DEBUG
 #define DPRINTF(n,s)    do { if ((n) <= FATFSIO_DEBUG) debug_printf s; } while (0)
@@ -134,7 +134,7 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff){
             }
             return res?RES_ERROR:RES_OK;
         case GET_SECTOR_SIZE:
-            DPRINTF(3, ("SECTOR SIZE: %i\n", sector_sizes[pdrv]));
+            DPRINTF(3, ("SECTOR SIZE: %i\n", dev->sector_size));
             *(WORD*)buff = dev->sector_size;
             return RES_OK;
         case GET_SECTOR_COUNT:
